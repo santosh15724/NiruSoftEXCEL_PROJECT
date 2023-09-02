@@ -121,6 +121,7 @@ public class GenerateBillService implements GenerateBillImpl {
                 farmerData.put("Coolie", farmerDataWithSum.get("Coolie"));
                 farmerData.put("Amount", farmerDataWithSum.get("Amount"));
                 farmerData.put("EXP", farmerDataWithSum.get("EXP"));
+                farmerData.put("TOTAL", farmerDataWithSum.get("TOTAL"));//TOTAL
 
             }
         }
@@ -320,6 +321,10 @@ public class GenerateBillService implements GenerateBillImpl {
 
             // Add EXP to the farmerDataObject
             farmerDataObject.put("EXP", String.valueOf(expSumRounded));
+
+            BigDecimal TotalValue = amountTotal.subtract(expValue);
+            int totalValueExp = TotalValue.setScale(0,RoundingMode.HALF_UP).intValue();
+            farmerDataObject.put("TOTAL", String.valueOf(totalValueExp));
 
             // Add the modified farmerDataObject to the modifiedJson
             modifiedJson.put(farmerName, farmerDataObject);
