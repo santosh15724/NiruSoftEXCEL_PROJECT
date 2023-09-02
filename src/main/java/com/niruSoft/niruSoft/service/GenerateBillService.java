@@ -22,6 +22,8 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.util.*;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -34,7 +36,117 @@ import org.json.JSONObject;
 @Service
 public class GenerateBillService implements GenerateBillImpl {
 
+
+//    public JSONObject processExcelData(InputStream inputStream) {
+//        Map<String, List<Map<String, String>>> resultMap = new HashMap<>();
+//        Set<String> itemsWithQty = new HashSet<>();
+//        Set<String> seenItems = new HashSet<>();
+//
+//        try (Workbook workbook = WorkbookFactory.create(inputStream)) {
+//            FormulaEvaluator formulaEvaluator = workbook.getCreationHelper().createFormulaEvaluator();
+//            Sheet sheet = workbook.getSheetAt(0);
+//
+//            if (sheet.getPhysicalNumberOfRows() <= 1) {
+//                System.out.println("No data or only header row found.");
+//                return new JSONObject(resultMap); // Convert resultMap to JSONObject and return it
+//            }
+//
+//            Row headerRow = sheet.getRow(0);
+//            Map<String, Integer> columnIndexes = findColumnIndexes(headerRow);
+//
+//            int farmerNameColumnIndex = columnIndexes.getOrDefault("FARMERNAME", -1);
+//            int itemQtyColumnIndex = columnIndexes.getOrDefault("ITEMQTY", -1);
+//            int itemColumnIndex = columnIndexes.getOrDefault("ITEM", -1);
+//
+//            // Loop through the rows and extract data for all farmer names
+//            for (int rowIndex = 1; rowIndex < sheet.getPhysicalNumberOfRows(); rowIndex++) {
+//                Row dataRow = sheet.getRow(rowIndex);
+//                Cell farmerNameCell = dataRow.getCell(farmerNameColumnIndex);
+//
+//                if (farmerNameCell != null) {
+//                    String farmerName = getCellValueAsString(farmerNameCell, formulaEvaluator);
+//                    String itemQty = itemQtyColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemQtyColumnIndex), formulaEvaluator) : "";
+//                    String item = itemColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemColumnIndex), formulaEvaluator) : "";
+//
+//                    Map<String, String> dataMap = new HashMap<>();
+//                    IntStream.range(0, headerRow.getPhysicalNumberOfCells())
+//                            .forEach(cellIndex -> {
+//                                Cell dataCell = dataRow.getCell(cellIndex);
+//                                String cellValue = getCellValueAsString(dataCell, formulaEvaluator);
+//                                dataMap.put(headerRow.getCell(cellIndex).getStringCellValue(), cellValue);
+//                            });
+//
+//                    if (!itemQty.isEmpty() || !item.isEmpty()) {
+//                        if (!itemQty.isEmpty() && !item.isEmpty()) {
+//                            // Concatenate "Item qty" and "ITEM" with a space
+//                            dataMap.put("ITEM", itemQty + " " + item);
+//                        } else if (itemQty.isEmpty()) {
+//                            // If "Item qty" is empty, combine values under "ITEM"
+//                            itemsWithQty.add(item);
+//                        }
+//                    }
+//
+//                    if (itemQty.isEmpty() && seenItems.contains(item)) {
+//                        dataMap.put("ITEM", ""); // Set "ITEM" to empty
+//                    } else {
+//                        seenItems.add(item);
+//                    }
+//
+//                    resultMap.computeIfAbsent(farmerName, k -> new ArrayList<>()).add(dataMap);
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//        // Convert the original resultMap to a JSONObject
+//        JSONObject originalJson = new JSONObject(resultMap);
+//
+//        // Use the modifyJsonStructure function to restructure the JSON
+//        JSONObject modifiedJson = modifyJsonStructure(originalJson);
+//
+//        // Use the modifyJsonStructureWithSum function to add "BAGSUM" and "KGSUM" to the JSON
+//        JSONObject modifyJsonWithSum = modifyJsonStructureWithSum(originalJson);
+//
+//        // Merge the two JSON objects
+//        for (String farmerName : modifyJsonWithSum.keySet()) {
+//            if (modifiedJson.has(farmerName)) {
+//                JSONObject farmerData = modifiedJson.getJSONObject(farmerName);
+//                JSONObject farmerDataWithSum = modifyJsonWithSum.getJSONObject(farmerName);
+//
+//                // Merge "BAGSUM" and "KGSUM" into the existing farmerData
+//                farmerData.put("BAGSUM", farmerDataWithSum.get("BAGSUM"));
+//                farmerData.put("KGSUM", farmerDataWithSum.get("KGSUM"));
+//            }
+//        }
+//
+//        // Remove empty strings from the "ITEM" arrays
+//        for (String farmerName : modifiedJson.keySet()) {
+//            JSONArray itemArray = modifiedJson.getJSONObject(farmerName).getJSONArray("ITEM");
+//            JSONArray filteredItemArray = new JSONArray();
+//            for (int i = 0; i < itemArray.length(); i++) {
+//                String itemValue = itemArray.getString(i);
+//                if (!itemValue.isEmpty()) {
+//                    filteredItemArray.put(itemValue);
+//                }
+//            }
+//            modifiedJson.getJSONObject(farmerName).put("ITEM", filteredItemArray);
+//        }
+//
+//        return modifiedJson; // Return the modified JSON
+//    }
+
+    //
+//    private Map<String, Integer> findColumnIndexes(Row headerRow) {
+//        Map<String, Integer> columnIndexes = new HashMap<>();
+//        for (int cellIndex = 0; cellIndex < headerRow.getPhysicalNumberOfCells(); cellIndex++) {
+//            String header = headerRow.getCell(cellIndex).getStringCellValue().replace(" ", "").toUpperCase();
+//            columnIndexes.put(header, cellIndex);
+//        }
+//        return columnIndexes;
+//    }
     @Override
+
     public JSONObject processExcelData(InputStream inputStream) {
         Map<String, List<Map<String, String>>> resultMap = new HashMap<>();
         Set<String> itemsWithQty = new HashSet<>();
@@ -102,10 +214,7 @@ public class GenerateBillService implements GenerateBillImpl {
 
         // Use the modifyJsonStructure function to restructure the JSON
         JSONObject modifiedJson = modifyJsonStructure(originalJson);
-
-        // Use the modifyJsonStructureWithSum function to add "BAGSUM" and "KGSUM" to the JSON
         JSONObject modifyJsonWithSum = modifyJsonStructureWithSum(originalJson);
-
         // Merge the two JSON objects
         for (String farmerName : modifyJsonWithSum.keySet()) {
             if (modifiedJson.has(farmerName)) {
@@ -115,6 +224,11 @@ public class GenerateBillService implements GenerateBillImpl {
                 // Merge "BAGSUM" and "KGSUM" into the existing farmerData
                 farmerData.put("BAGSUM", farmerDataWithSum.get("BAGSUM"));
                 farmerData.put("KGSUM", farmerDataWithSum.get("KGSUM"));
+                farmerData.put("S.C", farmerDataWithSum.get("S.C"));
+                farmerData.put("Luggage", farmerDataWithSum.get("Luggage"));
+                farmerData.put("Coolie", farmerDataWithSum.get("Coolie"));
+                farmerData.put("Amount", farmerDataWithSum.get("Amount"));
+
             }
         }
 
@@ -134,7 +248,6 @@ public class GenerateBillService implements GenerateBillImpl {
         return modifiedJson; // Return the modified JSON
     }
 
-
     private Map<String, Integer> findColumnIndexes(Row headerRow) {
         Map<String, Integer> columnIndexes = new HashMap<>();
         for (int cellIndex = 0; cellIndex < headerRow.getPhysicalNumberOfCells(); cellIndex++) {
@@ -143,6 +256,7 @@ public class GenerateBillService implements GenerateBillImpl {
         }
         return columnIndexes;
     }
+
 
     private String getCellValueAsString(Cell cell, FormulaEvaluator formulaEvaluator) {
         if (cell != null) {
@@ -153,7 +267,9 @@ public class GenerateBillService implements GenerateBillImpl {
                     if (DateUtil.isCellDateFormatted(cell)) {
                         return cell.getDateCellValue().toString();
                     } else {
-                        return String.valueOf(cell.getNumericCellValue());
+                        // Use BigDecimal for numeric values
+                        BigDecimal numericValue = new BigDecimal(cell.getNumericCellValue());
+                        return numericValue.toString();
                     }
                 case BOOLEAN:
                     return String.valueOf(cell.getBooleanCellValue());
@@ -163,7 +279,9 @@ public class GenerateBillService implements GenerateBillImpl {
                         case STRING:
                             return cellValue.getStringValue();
                         case NUMERIC:
-                            return String.valueOf(cellValue.getNumberValue());
+                            // Use BigDecimal for numeric values in formulas
+                            BigDecimal formulaNumericValue = new BigDecimal(cellValue.getNumberValue());
+                            return formulaNumericValue.toString();
                         case BOOLEAN:
                             return String.valueOf(cellValue.getBooleanValue());
                     }
@@ -199,6 +317,77 @@ public class GenerateBillService implements GenerateBillImpl {
         return modifiedJson;
     }
 
+//
+//    private JSONObject modifyJsonStructureWithSum(JSONObject originalJson) {
+//        JSONObject modifiedJson = new JSONObject();
+//
+//        for (String farmerName : originalJson.keySet()) {
+//            JSONArray farmerDataArray = originalJson.getJSONArray(farmerName);
+//            JSONObject farmerDataObject = new JSONObject();
+//
+//            // Initialize BagSum and KgSum
+//            JSONObject bagSum = new JSONObject();
+//            JSONObject kgSum = new JSONObject();
+//
+//            BigDecimal scTotal = BigDecimal.ZERO; // Initialize S.C total as BigDecimal
+//
+//            for (int i = 0; i < farmerDataArray.length(); i++) {
+//                JSONObject rowData = farmerDataArray.getJSONObject(i);
+//
+//                // Extract relevant data
+//                String rate = rowData.getString("Rate");
+//                String qty = rowData.getString("QTY");
+//                String sc = rowData.getString("S.C");
+//
+//                // Add quantity to BagSum or KgSum based on Rate
+//                if (!rate.isEmpty() && !qty.isEmpty()) {
+//                    double rateValue = Double.parseDouble(rate);
+//                    double qtyValue = Double.parseDouble(qty);
+//
+//                    // Determine whether to use BagSum or KgSum based on Rate
+//                    String sumKey = rateValue >= 100.0 ? "BAGSUM" : "KGSUM";
+//
+//                    // Add the quantity to the appropriate sum
+//                    JSONObject sumObject = sumKey.equals("BAGSUM") ? bagSum : kgSum;
+//                    if (!sumObject.has(rate)) {
+//                        sumObject.put(rate, new JSONArray());
+//                    }
+//                    sumObject.getJSONArray(rate).put(String.valueOf(qtyValue)); // Convert qtyValue to String
+//                }
+//
+//                // Add S.C value to the total
+//                if (!sc.isEmpty()) {
+//                    BigDecimal scValue = new BigDecimal(sc);
+//                    scTotal = scTotal.add(scValue);
+//                }
+//
+//                // Add other data to the farmerDataObject
+//                for (String header : rowData.keySet()) {
+//                    if (!header.equals("QTY")) {
+//                        if (!farmerDataObject.has(header)) {
+//                            farmerDataObject.put(header, new JSONArray());
+//                        }
+//                        JSONArray headerArray = farmerDataObject.getJSONArray(header);
+//                        headerArray.put(rowData.getString(header));
+//                    }
+//                }
+//            }
+//
+//            // Add BagSum and KgSum to the farmerDataObject
+//            farmerDataObject.put("BAGSUM", bagSum);
+//            farmerDataObject.put("KGSUM", kgSum);
+//
+//            // Override the original "S.C" with the calculated sum as a string
+//            int scTotalRounded = scTotal.setScale(0, RoundingMode.HALF_UP).intValue();
+//            farmerDataObject.put("S.C", String.valueOf(scTotalRounded));
+//
+//            // Add the modified farmerDataObject to the modifiedJson
+//            modifiedJson.put(farmerName, farmerDataObject);
+//        }
+//
+//        return modifiedJson;
+//    }
+
     private JSONObject modifyJsonStructureWithSum(JSONObject originalJson) {
         JSONObject modifiedJson = new JSONObject();
 
@@ -206,9 +395,13 @@ public class GenerateBillService implements GenerateBillImpl {
             JSONArray farmerDataArray = originalJson.getJSONArray(farmerName);
             JSONObject farmerDataObject = new JSONObject();
 
-            // Initialize BagSum and KgSum
+            // Initialize BagSum, KgSum, and other sums
             JSONObject bagSum = new JSONObject();
             JSONObject kgSum = new JSONObject();
+            BigDecimal scTotal = BigDecimal.ZERO;
+            BigDecimal coolieTotal = BigDecimal.ZERO;
+            BigDecimal luggageTotal = BigDecimal.ZERO;
+            BigDecimal amountTotal = BigDecimal.ZERO; // Initialize Amount total
 
             for (int i = 0; i < farmerDataArray.length(); i++) {
                 JSONObject rowData = farmerDataArray.getJSONObject(i);
@@ -216,21 +409,45 @@ public class GenerateBillService implements GenerateBillImpl {
                 // Extract relevant data
                 String rate = rowData.getString("Rate");
                 String qty = rowData.getString("QTY");
+                String sc = rowData.getString("S.C");
+                String coolie = rowData.getString("Coolie");
+                String luggage = rowData.getString("Luggage");
+                String amount = rowData.getString("Amount"); // Amount value
 
                 // Add quantity to BagSum or KgSum based on Rate
                 if (!rate.isEmpty() && !qty.isEmpty()) {
                     double rateValue = Double.parseDouble(rate);
                     double qtyValue = Double.parseDouble(qty);
-
-                    // Determine whether to use BagSum or KgSum based on Rate
                     String sumKey = rateValue >= 100.0 ? "BAGSUM" : "KGSUM";
-
-                    // Add the quantity to the appropriate sum
                     JSONObject sumObject = sumKey.equals("BAGSUM") ? bagSum : kgSum;
                     if (!sumObject.has(rate)) {
                         sumObject.put(rate, new JSONArray());
                     }
-                    sumObject.getJSONArray(rate).put(String.valueOf(qtyValue)); // Convert qtyValue to String
+                    sumObject.getJSONArray(rate).put(String.valueOf(qtyValue));
+                }
+
+                // Add S.C value to the total as BigDecimal
+                if (!sc.isEmpty()) {
+                    BigDecimal scValue = new BigDecimal(sc);
+                    scTotal = scTotal.add(scValue);
+                }
+
+                // Add Coolie value to the total as BigDecimal
+                if (!coolie.isEmpty()) {
+                    BigDecimal coolieValue = new BigDecimal(coolie);
+                    coolieTotal = coolieTotal.add(coolieValue);
+                }
+
+                // Add Luggage value to the total as BigDecimal
+                if (!luggage.isEmpty()) {
+                    BigDecimal luggageValue = new BigDecimal(luggage);
+                    luggageTotal = luggageTotal.add(luggageValue);
+                }
+
+                // Add Amount value to the total as BigDecimal
+                if (!amount.isEmpty()) {
+                    BigDecimal amountValue = new BigDecimal(amount);
+                    amountTotal = amountTotal.add(amountValue);
                 }
 
                 // Add other data to the farmerDataObject
@@ -248,6 +465,22 @@ public class GenerateBillService implements GenerateBillImpl {
             // Add BagSum and KgSum to the farmerDataObject
             farmerDataObject.put("BAGSUM", bagSum);
             farmerDataObject.put("KGSUM", kgSum);
+
+            // Add S.CTOTAL to the farmerDataObject as a rounded integer
+            int scTotalRounded = scTotal.setScale(0, RoundingMode.HALF_UP).intValue();
+            farmerDataObject.put("S.C", String.valueOf(scTotalRounded));
+
+            // Add CoolieTOTAL to the farmerDataObject as a rounded integer
+            int coolieTotalRounded = coolieTotal.setScale(0, RoundingMode.HALF_UP).intValue();
+            farmerDataObject.put("Coolie", String.valueOf(coolieTotalRounded));
+
+            // Add LuggageTOTAL to the farmerDataObject as a rounded integer
+            int luggageTotalRounded = luggageTotal.setScale(0, RoundingMode.HALF_UP).intValue();
+            farmerDataObject.put("Luggage", String.valueOf(luggageTotalRounded));
+
+            // Add AmountTOTAL to the farmerDataObject as a rounded integer
+            int amountTotalRounded = amountTotal.setScale(0, RoundingMode.HALF_UP).intValue();
+            farmerDataObject.put("Amount", String.valueOf(amountTotalRounded));
 
             // Add the modified farmerDataObject to the modifiedJson
             modifiedJson.put(farmerName, farmerDataObject);
