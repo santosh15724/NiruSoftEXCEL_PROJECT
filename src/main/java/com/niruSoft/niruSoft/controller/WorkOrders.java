@@ -1,7 +1,5 @@
 package com.niruSoft.niruSoft.controller;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itextpdf.io.font.FontConstants;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
@@ -12,7 +10,6 @@ import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.kernel.pdf.canvas.PdfCanvas;
 import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.Style;
@@ -20,25 +17,23 @@ import com.itextpdf.layout.borders.Border;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.*;
 import com.itextpdf.layout.property.*;
-import com.itextpdf.layout.renderer.CellRenderer;
-import com.itextpdf.layout.renderer.DrawContext;
-import com.itextpdf.layout.renderer.LineRenderer;
+import com.itextpdf.text.DocumentException;
 import com.niruSoft.niruSoft.service.GenerateBillService;
 import com.niruSoft.niruSoft.utils.CustomCellRenderer;
 import com.niruSoft.niruSoft.utils.ExcelValidator;
 //import com.niruSoft.niruSoft.utils.NoBottomBorderCellRenderer;
+import org.apache.pdfbox.io.MemoryUsageSetting;
+import org.apache.pdfbox.multipdf.PDFMergerUtility;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
-import org.apache.poi.ss.usermodel.CellStyle;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.cglib.core.Block;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -47,12 +42,11 @@ import com.itextpdf.layout.element.Paragraph;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
-
-import static org.apache.commons.compress.utils.IOUtils.toByteArray;
-import static org.apache.poi.ss.util.CellUtil.setFont;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 @RestController
 public class WorkOrders {
@@ -68,28 +62,172 @@ public class WorkOrders {
         this.generateBillService = generateBillService;
     }
 
+//    @PostMapping("/uploadExcel")
+//    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
+//        boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
+//
+//        if (!file.isEmpty() && isValid) {
+//            JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
+//
+//            // Convert JSONObject to a formatted JSON string for printing
+//            String jsonData = excelData.toString(4); // Use an indentation of 4 spaces for formatting
+//            System.out.println("Excel Data JSON:\n" + jsonData);
+//
+//            // Rest of your code...
+//
+//            // Return the response...
+//        } else {
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
+//        }
+//        return null;
+//    }
+//@PostMapping("/uploadExcel")
+//public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws Exception {
+//    boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
+//
+//    if (!file.isEmpty() && isValid) {
+//        JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
+//
+//        List<byte[]> pdfBytes = generateBillService.generatePdfFromJson(String.valueOf(excelData));
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.APPLICATION_PDF);
+//        headers.setContentDispositionFormData("attachment", "excel_data.pdf");
+//        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+//    } else {
+//        // Return a JSON response with an error message
+//        Map<String, String> errorResponse = new HashMap<>();
+//        errorResponse.put("error", "Invalid document");
+//        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+//    }
+//}
+//@PostMapping("/uploadExcel")
+//public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws Exception {
+//    boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
+//
+//    if (!file.isEmpty() && isValid) {
+//        JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
+//
+//        List<byte[]> pdfBytesList = generateBillService.generatePdfFromJson(String.valueOf(excelData));
+//
+//        // Create a ByteArrayOutputStream to hold the zip file
+//        ByteArrayOutputStream zipOutputStream = new ByteArrayOutputStream();
+//        try (ZipOutputStream zip = new ZipOutputStream(zipOutputStream)) {
+//            for (int i = 0; i < pdfBytesList.size(); i++) {
+//                // Create a unique entry name for each PDF
+//                String entryName = "pdf_" + i + ".pdf";
+//                zip.putNextEntry(new ZipEntry(entryName));
+//                zip.write(pdfBytesList.get(i));
+//                zip.closeEntry();
+//            }
+//        }
+//
+//        // Set up the response headers
+//        HttpHeaders headers = new HttpHeaders();
+//        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+//        headers.setContentDispositionFormData("attachment", "pdfs.zip");
+//
+//        return new ResponseEntity<>(zipOutputStream.toByteArray(), headers, HttpStatus.OK);
+//    } else {
+//        // Return a JSON response with an error message
+//        Map<String, String> errorResponse = new HashMap<>();
+//        errorResponse.put("error", "Invalid document");
+//        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+//    }
+//}
+
     @PostMapping("/uploadExcel")
-    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
+    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws Exception {
         boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
 
         if (!file.isEmpty() && isValid) {
             JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
+            List<byte[]> pdfBytesList = generateBillService.generatePdfFromJson(String.valueOf(excelData));
 
-            // Convert JSONObject to a formatted JSON string for printing
-            String jsonData = excelData.toString(4); // Use an indentation of 4 spaces for formatting
-            System.out.println("Excel Data JSON:\n" + jsonData);
+            ByteArrayOutputStream mergedPdfOutputStream = mergePDFs(pdfBytesList);
 
-            // Rest of your code...
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.setContentDispositionFormData("attachment", "merged_pdf.pdf");
 
-            // Return the response...
+            return new ResponseEntity<>(mergedPdfOutputStream.toByteArray(), headers, HttpStatus.OK);
         } else {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
+            Map<String, String> errorResponse = new HashMap<>();
+            errorResponse.put("error", "Invalid document");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
         }
-        return null;
+    }
+
+    private ByteArrayOutputStream mergePDFs(List<byte[]> pdfBytesList) throws IOException {
+        ByteArrayOutputStream mergedPdfOutputStream = new ByteArrayOutputStream();
+
+        try (PDDocument mergedPdf = new PDDocument()) {
+            for (byte[] pdfBytes : pdfBytesList) {
+                try (InputStream pdfInputStream = new ByteArrayInputStream(pdfBytes)) {
+                    PDDocument individualPdf = PDDocument.load(pdfInputStream);
+                    for (PDPage page : individualPdf.getPages()) {
+                        mergedPdf.addPage(page);
+                    }
+                }
+            }
+            mergedPdf.save(mergedPdfOutputStream);
+        }
+
+        return mergedPdfOutputStream;
     }
 
 
+    public static byte[] convertJSONObjectToPDF(JSONObject jsonData) throws Exception {
+        // Create a ByteArrayOutputStream to store all PDF content
+        ByteArrayOutputStream allPDFsOutputStream = new ByteArrayOutputStream();
 
+        // Iterate through each key (object) in the JSON
+        Iterator<String> keys = jsonData.keys();
+        while (keys.hasNext()) {
+            String key = keys.next();
+            JSONObject objectData = jsonData.getJSONObject(key);
+
+            // Create a new PDF document for each object
+            PDDocument document = new PDDocument();
+            PDPage page = new PDPage();
+            document.addPage(page);
+
+            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                contentStream.beginText();
+                contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12);
+                contentStream.newLineAtOffset(50, 700); // Adjust the position as needed
+
+                // Convert JSON data to a formatted string
+                String formattedJSON = objectData.toString(4);
+
+                // Split the formatted JSON into lines
+                String[] lines = formattedJSON.split("\n");
+
+                // Write each line to the PDF
+                for (String line : lines) {
+                    contentStream.showText(line);
+                    contentStream.newLine();
+                }
+
+                contentStream.endText();
+            }
+
+            // Create a ByteArrayOutputStream to store the PDF content for this object
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+
+            // Save the document to the ByteArrayOutputStream
+            document.save(outputStream);
+            document.close();
+
+            // Append this object's PDF content to the allPDFsOutputStream
+            allPDFsOutputStream.write(outputStream.toByteArray());
+
+            // Add a separator between PDFs (you can customize this as needed)
+            allPDFsOutputStream.write("\n\n\n".getBytes());
+        }
+
+        // Return the combined PDF content as a byte array
+        return allPDFsOutputStream.toByteArray();
+    }
 //    @PostMapping("/uploadExcel")
 //    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
 //        boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
@@ -117,8 +255,6 @@ public class WorkOrders {
 //            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
 //        }
 //    }
-
-
 
 
 //    @PostMapping("/uploadExcel")
@@ -229,12 +365,6 @@ public class WorkOrders {
             return new byte[0];
         }
     }
-
-
-
-
-
-
 
 
 //    private byte[] generatePdfFromJson(String jsonData) throws IOException {
@@ -360,8 +490,6 @@ public class WorkOrders {
 //}
 
 
-
-
     @GetMapping("/generate-pdf")
     public ResponseEntity<byte[]> generatePdf() {
         String businessName = "BCP MUNSWAMY";
@@ -395,9 +523,7 @@ public class WorkOrders {
 
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(ContentDisposition.builder("inline")
-                    .filename("generated-pdf.pdf")
-                    .build());
+            headers.setContentDisposition(ContentDisposition.builder("inline").filename("generated-pdf.pdf").build());
 
             return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
         } catch (IOException e) {
@@ -416,22 +542,15 @@ public class WorkOrders {
 
         document.add(image);
 
-        Paragraph paragraph = new Paragraph()
-                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-                .setFontSize(25)
-                .setMarginTop(25) // Add some top margin for spacing
-                .setWidth(imageWidth)
-                .setHorizontalAlignment(HorizontalAlignment.CENTER);
+        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
+                .setWidth(imageWidth).setHorizontalAlignment(HorizontalAlignment.CENTER);
 
 
         TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
         paragraph.addTabStops(tabStop);
 
-        Paragraph businessParagraph = new Paragraph()
-                .setMarginLeft(40) // Add a left margin
-                .add(new Text("M/s :    ")
-                        .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)))
-                .add(new Text(businessName) // Add the businessName with bold font
+        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
+                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
                         .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
 
         Text dateText = new Text("DATE :    " + date);
@@ -454,12 +573,8 @@ public class WorkOrders {
             particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
         }
 
-        Paragraph particularsParagraph = new Paragraph(particularsLine.toString())
-                .setMarginLeft(4)
-                .setMarginTop(-3) // Add top margin for spacing
-                .setFontSize(20)
-                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD))
-                .setHorizontalAlignment(HorizontalAlignment.CENTER);
+        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
+                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
 
         document.add(particularsParagraph);
 
@@ -470,28 +585,21 @@ public class WorkOrders {
 
     private void addBody(Document document, List<String> particularsList, String rate, String amount) throws IOException {
         // Create a Div element for the table
-        Div tableDiv = new Div()
-                .setWidth(UnitValue.createPercentValue(100))
-                .setHeight(UnitValue.createPercentValue(100));
+        Div tableDiv = new Div().setWidth(UnitValue.createPercentValue(100)).setHeight(UnitValue.createPercentValue(100));
 
         // Define a style for the table cells
-        Style cellStyle = new Style()
-                .setPadding(10) // Increase padding for cell content
-                .setFontSize(20)
-                .setTextAlignment(TextAlignment.CENTER) // Center-align text
+        Style cellStyle = new Style().setPadding(10) // Increase padding for cell content
+                .setFontSize(20).setTextAlignment(TextAlignment.CENTER) // Center-align text
                 .setVerticalAlignment(VerticalAlignment.MIDDLE);
 
         // Define a style for the header cells
-        Style cellStyleHeader = new Style()
-                .setPadding(8) // Increase padding for cell content
+        Style cellStyleHeader = new Style().setPadding(8) // Increase padding for cell content
                 .setFontSize(18) // Increase font size for cell content
                 .setTextAlignment(TextAlignment.CENTER) // Center-align text
                 .setVerticalAlignment(VerticalAlignment.MIDDLE);
 
         // Create the table for SLno, Brief, Rate, and Amount
-        Table table = new Table(UnitValue.createPercentArray(new float[]{14, 54, 13, 18}))
-                .useAllAvailableWidth()
-                .setBorder(new SolidBorder(ColorConstants.BLACK, 1));
+        Table table = new Table(UnitValue.createPercentArray(new float[]{14, 54, 13, 18})).useAllAvailableWidth().setBorder(new SolidBorder(ColorConstants.BLACK, 1));
 
         // Add table headers
         table.addCell(createCell("SLno", true).addStyle(cellStyleHeader));
@@ -680,8 +788,7 @@ public class WorkOrders {
 
     private Cell createCell(String content, boolean isHeader) throws IOException {
         Cell cell = new Cell();
-        cell.add(new Paragraph(content)
-                .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)));
+        cell.add(new Paragraph(content).setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)));
         return cell;
     }
 

@@ -1,5 +1,7 @@
 package com.niruSoft.niruSoft.service;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itextpdf.io.font.FontConstants;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
@@ -12,6 +14,7 @@ import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.*;
 import com.itextpdf.layout.property.HorizontalAlignment;
 import com.itextpdf.layout.property.TabAlignment;
+import com.niruSoft.niruSoft.model.SubObjectData;
 import com.niruSoft.niruSoft.service.impl.GenerateBillImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
@@ -36,6 +39,7 @@ import org.json.JSONObject;
 @Service
 public class GenerateBillService implements GenerateBillImpl {
 
+    private static final int SCALE = 4;
 
     @Override
 
@@ -256,6 +260,7 @@ public class GenerateBillService implements GenerateBillImpl {
                             sumObject.put(rate, new JSONArray());
                         }
                         sumObject.getJSONArray(rate).put(String.valueOf(qtyValue));
+
                     }
                 }
 
@@ -323,7 +328,7 @@ public class GenerateBillService implements GenerateBillImpl {
             farmerDataObject.put("EXP", String.valueOf(expSumRounded));
 
             BigDecimal TotalValue = amountTotal.subtract(expValue);
-            int totalValueExp = TotalValue.setScale(0,RoundingMode.HALF_UP).intValue();
+            int totalValueExp = TotalValue.setScale(0, RoundingMode.HALF_UP).intValue();
             farmerDataObject.put("TOTAL", String.valueOf(totalValueExp));
 
             // Add the modified farmerDataObject to the modifiedJson
@@ -335,96 +340,271 @@ public class GenerateBillService implements GenerateBillImpl {
 
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
-    public byte[] generatePdfFromJson(String jsonData) {
-//      public void  gettingvalue(String topLevelKey, String combinedLine){
+//    public List<byte[]> generatePdfFromJson(String jsonData) {
+//        List<byte[]> pdfs = new ArrayList<>();
 //
+//        try {
+//            ObjectMapper objectMapper = new ObjectMapper();
+//            JsonNode jsonNode = objectMapper.readTree(jsonData);
+//            System.out.println(jsonNode);
+//
+//            if (jsonNode.isObject()) {
+//                // Iterate over each sub-object
+//                jsonNode.fields().forEachRemaining(entry -> {
+//                    String subObjectName = entry.getKey();
+//                    JsonNode subObjectData = entry.getValue();
+//
+//                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+//
+//                    PdfWriter pdfWriter = new PdfWriter(outputStream);
+//                    PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+//
+//                    pdfDocument.addNewPage();
+//
+//                    // Create a document
+//                    try (Document document = new Document(pdfDocument)) {
+//                        // Customize content based on subObjectData
+//                        document.add(new Paragraph("Sub-Object Name: " + subObjectName));
+//
+//                        // Add more content based on the sub-object's data
+//                        // You can extract data from subObjectData here
+//                    }
+//
+//                    pdfDocument.close(); // Close the PdfDocument
+//                    byte[] pdfBytes = outputStream.toByteArray();
+//                    pdfs.add(pdfBytes);
+//                });
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
 //        }
-        String businessName = "BCP MUNSWAMY";
-        String date = "14-8-2023";
-        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
-        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER"); // Example products
-        String rate = "90";
-        String amount = "89";
+//
+//        return pdfs;
+//    }
+//    public List<byte[]> generatePdfFromJson(String jsonData) {
+//        List<byte[]> pdfs = new ArrayList<>();
+//
+//        try {
+//            ObjectMapper objectMapper = new ObjectMapper();
+//            JsonNode jsonNode = objectMapper.readTree(jsonData);
+//
+//            if (jsonNode.isObject()) {
+//                // Iterate over each sub-object
+//                jsonNode.fields().forEachRemaining(entry -> {
+//                    String subObjectName = entry.getKey();
+//                    JsonNode subObjectData = entry.getValue();
+//
+//                    try {
+//                        // Deserialize JSON data into a SubObjectData object
+//                        SubObjectData subObject = objectMapper.readValue(subObjectData.toString(), SubObjectData.class);
+//
+//                        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+//                        PdfWriter pdfWriter = new PdfWriter(outputStream);
+//
+//                        // Set A3 page size here
+////                        PdfDocument pdfDocument = new PdfDocument(pdfWriter, PageSize.A3);
+//                        PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+//                        pdfDocument.setDefaultPageSize(PageSize.A3);
+//                        pdfDocument.addNewPage();
+//
+//                        // Create a document
+//                        try (Document document = new Document(pdfDocument)) {
+//                            // Header Section
+////                            createHeader(document, subObjectName, subObject);
+//
+//                            // Body Section
+////                            createBody(document, subObject);
+//
+//                            // Footer Section
+////                            createFooter(document, subObject);
+//                        }
+//
+//                        pdfDocument.close(); // Close the PdfDocument
+//                        byte[] pdfBytes = outputStream.toByteArray();
+//                        pdfs.add(pdfBytes);
+//                    } catch (Exception e) {
+//                        e.printStackTrace();
+//                    }
+//                });
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//        return pdfs;
+//    }
+    public List<byte[]> generatePdfFromJson(String jsonData) {
+        List<byte[]> pdfs = new ArrayList<>();
+
         try {
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            PdfWriter pdfWriter = new PdfWriter(outputStream);
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(jsonData);
+            System.out.println(jsonNode);
 
-            PageSize a3PageSize = PageSize.A3;
+            if (jsonNode.isObject()) {
+                // Iterate over each sub-object
+                jsonNode.fields().forEachRemaining(entry -> {
+                    String subObjectName = entry.getKey();
+                    JsonNode subObjectData = entry.getValue();
 
-            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-            pdfDocument.setDefaultPageSize(a3PageSize);
-            Document document = new Document(pdfDocument);
+                    ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 
-            // Header Section
-            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
+                    try {
+                        PdfWriter pdfWriter = new PdfWriter(outputStream);
+                        PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+                        PageSize a3PageSize = PageSize.A3;
+                        pdfDocument.setDefaultPageSize(a3PageSize);
+                        pdfDocument.addNewPage();
 
-            // Body Section
-//            addBody(document, particularsList, rate, amount);
+                        // Create a document
+                        try (Document document = new Document(pdfDocument)) {
+                            // Add header section
+                            addHeader(document, subObjectName, subObjectData);
 
-            // Footer Section
-//            addFooter(document);
+                            // Add body section
+//                            addBody(document, subObjectData);
 
-            document.close();
+                            // Add footer section
+//                            addFooter(document, subObjectName, subObjectData);
+                        }
 
-            document.close();
-
-            return outputStream.toByteArray();
+                        pdfDocument.close(); // Close the PdfDocument
+                        byte[] pdfBytes = outputStream.toByteArray();
+                        pdfs.add(pdfBytes);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
         } catch (Exception e) {
             e.printStackTrace();
-            return new byte[0];
         }
+
+        return pdfs;
     }
 
-    private void addHeader(Document document, PageSize a3PageSize, String businessName, String date, List<String> particularsList, List<String> productList) throws IOException {
+    private void addHeader(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
         ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
         ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
         Image image = new Image(imageData);
 
-        float imageWidth = a3PageSize.getWidth() * 0.94f;
+        float imageWidth = PageSize.A3.getWidth() * 0.94f; // Use A3 size directly
         image.setWidth(imageWidth);
 
         document.add(image);
 
-        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
-                .setWidth(imageWidth).setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
-
+        Paragraph paragraph = new Paragraph()
+                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+                .setFontSize(25)
+                .setMarginTop(25) // Add some top margin for spacing
+                .setWidth(imageWidth)
+                .setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
 
         TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
         paragraph.addTabStops(tabStop);
 
         Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
-                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
+                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)))
+                .add(new Text(subObjectName) // Add the subObjectName with bold font
                         .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
-
-        Text dateText = new Text("DATE :    " + date);
-//                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
-
-// Add businessDiv and dateText with space between them
-        paragraph.add(businessParagraph);
-        paragraph.add(new Text("                              "));
-        paragraph.add(dateText);
 
         document.add(paragraph);
 
-
-        // Add the "Particulars" line with dynamic values
-        StringBuilder particularsLine = new StringBuilder("Particulars : ");
-        for (int i = 0; i < particularsList.size(); i++) {
-            if (i > 0) {
-                particularsLine.append("," + "\t");
-            }
-            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
-        }
-
-        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
-                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
-
-        document.add(particularsParagraph);
-
+        // Add a line separator
         LineSeparator separator = new LineSeparator(new SolidLine(1f));
         document.add(separator);
 
+        // Add the businessParagraph after the separator
+        document.add(businessParagraph);
     }
+
+
+//    private void addHeader(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
+//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
+//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
+//        Image image = new Image(imageData);
+//
+//        float imageWidth = document.getPdfDocument().getDefaultPageSize().getWidth() * 0.94f;
+//        image.setWidth(imageWidth);
+//
+//        document.add(image);
+//
+//        Paragraph paragraph = new Paragraph()
+//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+//                .setFontSize(25)
+//                .setMarginTop(25) // Add some top margin for spacing
+//                .setWidth(imageWidth)
+//                .setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
+//
+//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
+//        paragraph.addTabStops(tabStop);
+//
+//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
+//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(subObjectName) // Add the businessName with bold font
+//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
+//
+//
+//        document.add(paragraph);
+//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
+//        document.add(separator);
+//        paragraph.add(businessParagraph);
+//        paragraph.add(new Text("                              "));
+////        paragraph.add(dateText);
+//
+//        document.add(paragraph);
+//    }
+
+
+//    private void addHeader(Document document,String subObjectName,JsonNode subObjectData) throws IOException {
+//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
+//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
+//        Image image = new Image(imageData);
+//
+//        float imageWidth = a3PageSize.getWidth() * 0.94f;
+//        image.setWidth(imageWidth);
+//
+//        document.add(image);
+//
+//        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
+//                .setWidth(imageWidth).setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
+//
+//
+//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
+//        paragraph.addTabStops(tabStop);
+//
+//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
+//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
+//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
+//
+//        Text dateText = new Text("DATE :    " + date);
+////                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
+//
+//// Add businessDiv and dateText with space between them
+//        paragraph.add(businessParagraph);
+//        paragraph.add(new Text("                              "));
+//        paragraph.add(dateText);
+//
+//        document.add(paragraph);
+//
+//
+//        // Add the "Particulars" line with dynamic values
+//        StringBuilder particularsLine = new StringBuilder("Particulars : ");
+//        for (int i = 0; i < particularsList.size(); i++) {
+//            if (i > 0) {
+//                particularsLine.append("," + "\t");
+//            }
+//            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
+//        }
+//
+//        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
+//                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
+//
+//        document.add(particularsParagraph);
+//
+//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
+//        document.add(separator);
+//
+//    }
 
 
     private void addJsonObjectToDocument(Document document, JSONObject jsonObject, int level, Map<String, List<String>> keyValueMap) {
@@ -513,3 +693,84 @@ public class GenerateBillService implements GenerateBillImpl {
 
 
 }
+
+
+//        try {
+//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+//            PdfWriter pdfWriter = new PdfWriter(outputStream);
+//            PageSize a3PageSize = PageSize.A3;
+//            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+//            pdfDocument.setDefaultPageSize(a3PageSize);
+//            Document document = new Document(pdfDocument);
+//            // Header Section
+//            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
+//
+//            // Body Section
+////            addBody(document, particularsList, rate, amount);
+//
+//            // Footer Section
+////            addFooter(document);
+//
+//            document.close();
+//
+//            return outputStream.toByteArray();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return new byte[0];
+//        }
+//PageSize a3PageSize = PageSize.A3;
+//                pdfDocument.setDefaultPageSize(a3PageSize);
+//                Document document = new Document(pdfDocument);
+
+
+
+//    private void addHeader(Document document,String subObjectName,JsonNode subObjectData) throws IOException {
+//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
+//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
+//        Image image = new Image(imageData);
+//
+//        float imageWidth = a3PageSize.getWidth() * 0.94f;
+//        image.setWidth(imageWidth);
+//
+//        document.add(image);
+//
+//        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
+//                .setWidth(imageWidth).setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
+//
+//
+//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
+//        paragraph.addTabStops(tabStop);
+//
+//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
+//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
+//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
+//
+//        Text dateText = new Text("DATE :    " + date);
+////                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
+//
+//// Add businessDiv and dateText with space between them
+//        paragraph.add(businessParagraph);
+//        paragraph.add(new Text("                              "));
+//        paragraph.add(dateText);
+//
+//        document.add(paragraph);
+//
+//
+//        // Add the "Particulars" line with dynamic values
+//        StringBuilder particularsLine = new StringBuilder("Particulars : ");
+//        for (int i = 0; i < particularsList.size(); i++) {
+//            if (i > 0) {
+//                particularsLine.append("," + "\t");
+//            }
+//            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
+//        }
+//
+//        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
+//                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
+//
+//        document.add(particularsParagraph);
+//
+//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
+//        document.add(separator);
+//
+//    }
