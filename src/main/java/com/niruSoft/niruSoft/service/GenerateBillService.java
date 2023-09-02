@@ -236,16 +236,26 @@ public class GenerateBillService implements GenerateBillImpl {
                 String luggage = rowData.getString("Luggage");
                 String amount = rowData.getString("Amount"); // Amount value
 
-                // Add quantity to BagSum or KgSum based on Rate
                 if (!rate.isEmpty() && !qty.isEmpty()) {
                     double rateValue = Double.parseDouble(rate);
                     double qtyValue = Double.parseDouble(qty);
-                    String sumKey = rateValue >= 100.0 ? "BAGSUM" : "KGSUM";
-                    JSONObject sumObject = sumKey.equals("BAGSUM") ? bagSum : kgSum;
-                    if (!sumObject.has(rate)) {
-                        sumObject.put(rate, new JSONArray());
+
+                    if (rateValue == 0.0) {
+                        // Append "NO SALE" to BAGSUM when rate is 0
+                        if (!bagSum.has(rate)) {
+                            bagSum.put(rate, new JSONArray());
+                        }
+                        bagSum.getJSONArray(rate).put("NO SALE");
+                    } else {
+                        // Determine whether to use BagSum or KgSum based on Rate
+                        String sumKey = rateValue >= 100.0 ? "BAGSUM" : "KGSUM";
+                        // Add the quantity to the appropriate sum
+                        JSONObject sumObject = sumKey.equals("BAGSUM") ? bagSum : kgSum;
+                        if (!sumObject.has(rate)) {
+                            sumObject.put(rate, new JSONArray());
+                        }
+                        sumObject.getJSONArray(rate).put(String.valueOf(qtyValue));
                     }
-                    sumObject.getJSONArray(rate).put(String.valueOf(qtyValue));
                 }
 
                 // Add S.C value to the total as BigDecimal
