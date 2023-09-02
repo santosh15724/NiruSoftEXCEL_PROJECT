@@ -1,7 +1,5 @@
 package com.niruSoft.niruSoft.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-
 import com.itextpdf.io.font.FontConstants;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
@@ -18,8 +16,6 @@ import com.niruSoft.niruSoft.service.impl.GenerateBillImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.usermodel.Cell;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -28,7 +24,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.util.*;
 import java.util.List;
-import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.json.JSONArray;
@@ -39,29 +34,27 @@ import org.json.JSONObject;
 @Service
 public class GenerateBillService implements GenerateBillImpl {
 
-    //    private static final Logger log = LoggerFactory.getLogger(GenerateBillService.class);
     @Override
-    public String validateServices(InputStream inputStream) {
+    public JSONObject processExcelData(InputStream inputStream) {
         Map<String, List<Map<String, String>>> resultMap = new HashMap<>();
+        Set<String> itemsWithQty = new HashSet<>();
+        Set<String> seenItems = new HashSet<>();
 
         try (Workbook workbook = WorkbookFactory.create(inputStream)) {
             FormulaEvaluator formulaEvaluator = workbook.getCreationHelper().createFormulaEvaluator();
             Sheet sheet = workbook.getSheetAt(0);
 
             if (sheet.getPhysicalNumberOfRows() <= 1) {
-                log.info("No data or only header row found.");
-//                System.out.println("No data or only header row found.");
-                return resultMap.toString();
+                System.out.println("No data or only header row found.");
+                return new JSONObject(resultMap); // Convert resultMap to JSONObject and return it
             }
 
             Row headerRow = sheet.getRow(0);
-            int farmerNameColumnIndex = IntStream.range(0, headerRow.getPhysicalNumberOfCells()).filter(i -> "FARMERNAME".equals(headerRow.getCell(i).getStringCellValue().replace(" ", "").toUpperCase())).findFirst().orElse(-1);
+            Map<String, Integer> columnIndexes = findColumnIndexes(headerRow);
 
-            if (farmerNameColumnIndex == -1) {
-                log.info("Column 'FARMER NAME' not found in the header.");
-//                System.out.println("Column 'FARMER NAME' not found in the header.");
-                return resultMap.toString();
-            }
+            int farmerNameColumnIndex = columnIndexes.getOrDefault("FARMERNAME", -1);
+            int itemQtyColumnIndex = columnIndexes.getOrDefault("ITEMQTY", -1);
+            int itemColumnIndex = columnIndexes.getOrDefault("ITEM", -1);
 
             // Loop through the rows and extract data for all farmer names
             for (int rowIndex = 1; rowIndex < sheet.getPhysicalNumberOfRows(); rowIndex++) {
@@ -70,362 +63,199 @@ public class GenerateBillService implements GenerateBillImpl {
 
                 if (farmerNameCell != null) {
                     String farmerName = getCellValueAsString(farmerNameCell, formulaEvaluator);
+                    String itemQty = itemQtyColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemQtyColumnIndex), formulaEvaluator) : "";
+                    String item = itemColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemColumnIndex), formulaEvaluator) : "";
 
                     Map<String, String> dataMap = new HashMap<>();
-                    IntStream.range(0, headerRow.getPhysicalNumberOfCells()).forEach(cellIndex -> {
-                        Cell dataCell = dataRow.getCell(cellIndex);
-                        String cellValue = getCellValueAsString(dataCell, formulaEvaluator);
-                        dataMap.put(headerRow.getCell(cellIndex).getStringCellValue(), cellValue);
-                    });
+                    IntStream.range(0, headerRow.getPhysicalNumberOfCells())
+                            .forEach(cellIndex -> {
+                                Cell dataCell = dataRow.getCell(cellIndex);
+                                String cellValue = getCellValueAsString(dataCell, formulaEvaluator);
+                                dataMap.put(headerRow.getCell(cellIndex).getStringCellValue(), cellValue);
+                            });
+
+                    if (!itemQty.isEmpty() || !item.isEmpty()) {
+                        if (!itemQty.isEmpty() && !item.isEmpty()) {
+                            // Concatenate "Item qty" and "ITEM" with a space
+                            dataMap.put("ITEM", itemQty + " " + item);
+                        } else if (itemQty.isEmpty()) {
+                            // If "Item qty" is empty, combine values under "ITEM"
+                            itemsWithQty.add(item);
+                        }
+                    }
+
+                    if (itemQty.isEmpty() && seenItems.contains(item)) {
+                        dataMap.put("ITEM", ""); // Set "ITEM" to empty
+                    } else {
+                        seenItems.add(item);
+                    }
 
                     resultMap.computeIfAbsent(farmerName, k -> new ArrayList<>()).add(dataMap);
                 }
             }
         } catch (Exception e) {
-            log.error("An error occurred while validating services.", e);
+            e.printStackTrace();
         }
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        String jsonResult = "";
-        try {
-            jsonResult = objectMapper.writeValueAsString(resultMap);
+        // Convert the original resultMap to a JSONObject
+        JSONObject originalJson = new JSONObject(resultMap);
 
-        } catch (Exception e) {
-            log.error("An error occurred while serializing the result map to JSON.", e);
-        }
+        // Use the modifyJsonStructure function to restructure the JSON
+        JSONObject modifiedJson = modifyJsonStructure(originalJson);
 
-        log.info("Processed data in JSON format: {}", jsonResult);
-        System.out.println(jsonResult);
-//        ProcessedFarmerData(jsonResult);
-        return String.valueOf((jsonResult));
-    }
+        // Use the modifyJsonStructureWithSum function to add "BAGSUM" and "KGSUM" to the JSON
+        JSONObject modifyJsonWithSum = modifyJsonStructureWithSum(originalJson);
 
-//    public JSONObject ProcessedFarmerData(String jsonResult) {
-//        JSONObject jsonObject = new JSONObject(jsonResult);
-//        JSONObject processedData = new JSONObject();
-//        // Create a new JSONObject for extractedRateData
-//
-//        for (String farmerName : jsonObject.keySet()) {
-//            JSONArray farmerDataArray = jsonObject.getJSONArray(farmerName);
-//
-//
-//            JSONObject farmerData = new JSONObject();
-//
-//            for (int i = 0; i < farmerDataArray.length(); i++) {
-//                JSONObject itemData = farmerDataArray.getJSONObject(i);
-//                String unit = itemData.optString("UNIT");
-//                String rate = itemData.optString("Rate");
-//                String qty = itemData.optString("QTY");
-//                String itemName = itemData.optString("ITEM");
-//                String coolie = itemData.optString("Coolie");
-//                String luggage = itemData.optString("Luggage");
-//                String sc = itemData.optString("S.C");
-//                String itemQty = itemData.optString(" Item qty");
-//                String ExcelDate = itemData.optString("DATE");
-////                System.out.println(ExcelDate);
-//
-//                JSONObject unitData = farmerData.optJSONObject(unit);
-//                if (unitData == null) {
-//                    unitData = new JSONObject();
-//                    farmerData.put(unit, unitData);
-//                }
-//
-//                JSONObject rateObject = unitData.optJSONObject("RATE");
-//                if (rateObject == null) {
-//                    rateObject = new JSONObject();
-//                    unitData.put("RATE", rateObject);
-//                }
-//
-//                JSONArray rateData = rateObject.optJSONArray(rate);
-//                if (rateData == null) {
-//                    rateData = new JSONArray();
-//                    rateObject.put(rate, rateData);
-//                }
-//
-//                if (!qty.isEmpty()) {
-//                    rateData.put(qty);
-//                }
-//
-//                // Store additional fields
-//                storeFieldData(unitData, "ITEM", itemName);
-//                storeFieldData(unitData, "Coolie", coolie);
-//                storeFieldData(unitData, "Luggage", luggage);
-//                storeFieldData(unitData, "S.C", sc);
-//                storeFieldData(unitData, "Item qty", itemQty);
-//            }
-//
-//            processedData.put(farmerName, farmerData);
-//        }
-//
-//        JSONObject extractedRateData = new JSONObject();
-//
-//        // Iterate through each farmer
-//        for (String farmerName : processedData.keySet()) {
-//            JSONObject farmerData = processedData.getJSONObject(farmerName);
-//
-//            // Create a new JSONObject to store the combined RATE data for the current farmer
-//            JSONObject combinedRateData = new JSONObject();
-//
-//            // Iterate through each unit for the current farmer
-//            for (String unitName : farmerData.keySet()) {
-//                JSONObject unitData = farmerData.getJSONObject(unitName);
-//
-//                // Check if the current unit is "BAG'S"
-//                if (unitName.equals("BAG'S") && unitData.has("RATE")) {
-//                    JSONObject rateData = unitData.getJSONObject("RATE");
-//                    for (String rate : rateData.keySet()) {
-//                        JSONArray qtyArray = rateData.getJSONArray(rate);
-//                        double sumQty = 0.0;
-//                        for (int i = 0; i < qtyArray.length(); i++) {
-//                            sumQty += Double.parseDouble(qtyArray.getString(i));
-//                        }
-//                        combinedRateData.put(rate, sumQty);
-//                    }
-//                } else {
-//                    // For units other than "BAG'S", retain the existing "RATE" structure
-//                    combinedRateData.put(unitName, unitData.getJSONObject("RATE"));
-//                }
-//            }
-//
-//            // Add the combined RATE data to the extractedRateData object
-//            if (!combinedRateData.isEmpty()) {
-//                extractedRateData.put(farmerName, combinedRateData);
-//            }
-//        }
-//
-//        // Create the final ProcessedFarmer object containing extracted combined RATE data
-//        JSONObject finalProcessedFarmer = new JSONObject();
-//        finalProcessedFarmer.put("ProcessedFarmer", extractedRateData);
-//
-//        System.out.println("Final Processed Farmer Data with Extracted Combined RATE: " + finalProcessedFarmer.toString(4));
-//
-////        System.out.println("My Requirement data " + processedData.toString(4));
-//        newagsahsjData(String.valueOf(processedData), extractedRateData);
-//        return processedData;
-//    }
+        // Merge the two JSON objects
+        for (String farmerName : modifyJsonWithSum.keySet()) {
+            if (modifiedJson.has(farmerName)) {
+                JSONObject farmerData = modifiedJson.getJSONObject(farmerName);
+                JSONObject farmerDataWithSum = modifyJsonWithSum.getJSONObject(farmerName);
 
-//    public static void newagsahsjData(String processedData, JSONObject extractedRateData) {
-//        JSONObject processedFarmerData = new JSONObject(processedData);
-//
-//        // Iterate through top-level keys (e.g., "ARUNA", "KG'S", etc.)
-//        for (String topLevelKey : processedFarmerData.keySet()) {
-//            JSONObject topLevelObject = processedFarmerData.getJSONObject(topLevelKey);
-//
-//            // Create a new JSONObject to hold merged values
-//            JSONObject mergedValues = new JSONObject();
-//
-//            // Process nested objects and arrays under the top-level object
-//            for (String nestedKey : topLevelObject.keySet()) {
-//                Object nestedValue = topLevelObject.get(nestedKey);
-//
-//                if (nestedValue instanceof JSONObject) {
-//                    JSONObject nestedObject = (JSONObject) nestedValue;
-//
-//                    // Retrieve arrays for different fields from the nested object
-//                    JSONArray itemsArray = nestedObject.optJSONArray("ITEM");
-//                    JSONArray itemQtyArray = nestedObject.optJSONArray("Item qty");
-//                    JSONArray Coolie = nestedObject.optJSONArray("Coolie");
-//                    JSONArray SC = nestedObject.optJSONArray("S.C");
-//
-//                    if (itemsArray != null && itemQtyArray != null) {
-//                        for (int i = 0; i < itemsArray.length(); i++) {
-//                            mergedValues.append("ITEM", itemsArray.getString(i));
-//                            mergedValues.append("Item qty", itemQtyArray.getString(i));
-//                            mergedValues.append("Coolie", Coolie.getString(i));
-//                            mergedValues.append("S.C", SC.getString(i));
-//                        }
-//                    }
-//                }
-//            }
-//
-//            // Print the merged values
-////            System.out.println("Merged values: " + extractedRateData);
-//
-//            // Call a function or perform any additional processing here if needed
-//            OneLeveDeep(mergedValues, topLevelKey, "DATE", extractedRateData);
-//        }
-//    }
-
-
-//    public static void OneLeveDeep(JSONObject mergedValues, String topLevelKey, String uniqueDatesString, JSONObject extractedRateData) {
-//        List<JSONArray> itemsArrays = new ArrayList<>();
-//        List<JSONArray> coolieArrays = new ArrayList<>();
-//        List<JSONArray> scArrays = new ArrayList<>();
-//        List<JSONArray> luggageArrays = new ArrayList<>();
-//        List<JSONArray> itemQtyArrays = new ArrayList<>();
-//        List<String> combinedPairs = new ArrayList<>();
-//        Set<String> uniqueItems = new HashSet<>();
-//
-//
-//        double SCtotalSum = 0.0;
-//        double LuggageSum = 0.0;
-//        double CoolieSum = 0.0;
-//
-//
-//        JSONArray itemsArray = mergedValues.optJSONArray("ITEM");
-//        if (itemsArray != null) {
-//            itemsArrays.add(itemsArray);
-//        }
-//
-//        JSONArray coolieArray = mergedValues.optJSONArray("Coolie");
-//        if (coolieArray != null) {
-//            coolieArrays.add(coolieArray);
-//        }
-//
-//        JSONArray scArray = mergedValues.optJSONArray("S.C");
-//        if (scArray != null) {
-//            scArrays.add(scArray);
-//        }
-//
-//        JSONArray luggageArray = mergedValues.optJSONArray("Luggage");
-//        if (luggageArray != null) {
-//            luggageArrays.add(luggageArray);
-//        }
-//
-//        JSONArray itemQtyArray = mergedValues.optJSONArray("Item qty");
-//        if (itemQtyArray != null) {
-//            itemQtyArrays.add(itemQtyArray);
-//        }
-//
-//        for (String key : mergedValues.keySet()) {
-//            if (!"ITEM".equals(key) && !"Coolie".equals(key) && !"S.C".equals(key) && !"Luggage".equals(key) && !"Item qty".equals(key)) {
-////                System.out.println("Key: " + key + " - Value: " + mergedValues.get(key));
-//            }
-//        }
-//
-//        System.out.println(uniqueDatesString);
-////        for (JSONArray array : itemsArrays) {
-////            System.out.println(array);
-////        }
-//        System.out.println(extractedRateData);
-//
-//        for (JSONArray array : scArrays) {
-//            double sum = 0.0;
-//            for (int i = 0; i < array.length(); i++) {
-//                String valueStr = array.optString(i);
-//                double value = Double.parseDouble(valueStr);
-////                System.out.println(value);
-//                sum += value;
-//            }
-//            SCtotalSum += sum;
-//        }
-//        System.out.println("Sum of values in scArrays: " + SCtotalSum);
-//
-//        for (JSONArray array : luggageArrays) {
-//            double sum = 0.0;
-//            for (int i = 0; i < array.length(); i++) {
-//                String valueStr = array.optString(i);
-//
-//                // Check if the value string is not empty and is numeric
-//                if (!valueStr.isEmpty()) {
-//                    try {
-//                        double value = Double.parseDouble(valueStr);
-////                        System.out.println(value);
-//                        sum += value;
-//                    } catch (NumberFormatException e) {
-//                        System.out.println("Invalid numeric value: " + valueStr);
-//                        // You can choose to handle this error case as needed
-//                    }
-//                }
-//            }
-//            LuggageSum += sum;
-//        }
-//        System.out.println("Sum of values in Luggage: " + LuggageSum);
-//
-//        for (JSONArray array : coolieArrays) {
-//            double sum = 0.0;
-//            for (int i = 0; i < array.length(); i++) {
-//                String valueStr = array.optString(i);
-//
-//                // Check if the value string is not empty and is numeric
-//                if (!valueStr.isEmpty()) {
-//                    try {
-//                        double value = Double.parseDouble(valueStr);
-////                        System.out.println(value);
-//                        sum += value;
-//                    } catch (NumberFormatException e) {
-//                        System.out.println("Invalid numeric value: " + valueStr);
-//                        // You can choose to handle this error case as needed
-//                    }
-//                }
-//            }
-//            CoolieSum += sum;
-//        }
-//        System.out.println("Sum of values in Coolie: " + CoolieSum);
-//
-//        int minSize = Math.min(itemsArrays.size(), itemQtyArrays.size());
-//        for (int i = 0; i < minSize; i++) {
-//            JSONArray itemsArray1 = itemsArrays.get(i);
-//            JSONArray itemQtyArray1 = itemQtyArrays.get(i);
-//
-//            // Check if both arrays are not empty
-//            if (!itemsArray1.isEmpty() && !itemQtyArray1.isEmpty()) {
-//                Set<String> uniquePairs = new HashSet<>();
-//
-//                for (int j = 0; j < itemsArray1.length() && j < itemQtyArray1.length(); j++) {
-//                    String item = itemsArray1.optString(j);
-//                    String itemQty = itemQtyArray1.optString(j);
-//
-//                    // Check if the item is unique, and if so, add it to the uniqueItems set
-//                    if (uniqueItems.add(item)) {
-//                        // Create a unique pair based on quantity and item
-//                        String uniquePair = itemQty + " " + item;
-//                        uniquePairs.add(uniquePair);
-//                    }
-//                }
-//
-//                // Join unique pairs with commas and add to the result list
-//                String combinedLine = String.join(", ", uniquePairs);
-//                System.out.println(combinedLine);
-//
-//                combinedPairs.add(combinedLine);
-//            }
-//        }
-//
-//
-//        double TotalSCtotalSumLuggageSumCoolieSum = SCtotalSum + LuggageSum + CoolieSum;
-//
-//    }
-
-    private void storeFieldData(JSONObject unitData, String fieldName, String value) {
-        JSONArray fieldData = unitData.optJSONArray(fieldName);
-        if (fieldData == null) {
-            fieldData = new JSONArray();
-            unitData.put(fieldName, fieldData);
-        }
-        fieldData.put(value);
-    }
-
-
-    private static String getCellValueAsString(Cell cell, FormulaEvaluator formulaEvaluator) {
-        if (cell == null) {
-            return "";
-        }
-        switch (cell.getCellType()) {
-            case STRING -> {
-                return cell.getStringCellValue();
+                // Merge "BAGSUM" and "KGSUM" into the existing farmerData
+                farmerData.put("BAGSUM", farmerDataWithSum.get("BAGSUM"));
+                farmerData.put("KGSUM", farmerDataWithSum.get("KGSUM"));
             }
-            case NUMERIC -> {
-                if (DateUtil.isCellDateFormatted(cell)) {
-                    // Handle date cells
-                    return cell.getDateCellValue().toString();
-                } else {
-                    // Handle numeric cells
-                    return String.valueOf(cell.getNumericCellValue());
+        }
+
+        // Remove empty strings from the "ITEM" arrays
+        for (String farmerName : modifiedJson.keySet()) {
+            JSONArray itemArray = modifiedJson.getJSONObject(farmerName).getJSONArray("ITEM");
+            JSONArray filteredItemArray = new JSONArray();
+            for (int i = 0; i < itemArray.length(); i++) {
+                String itemValue = itemArray.getString(i);
+                if (!itemValue.isEmpty()) {
+                    filteredItemArray.put(itemValue);
                 }
             }
-            case BOOLEAN -> {
-                return String.valueOf(cell.getBooleanCellValue());
-            }
-            case FORMULA -> {
-                CellValue evaluatedCellValue = formulaEvaluator.evaluate(cell);
-                return evaluatedCellValue.formatAsString(); // Return the raw formula expression
-            }
-            default -> {
-                return "";
+            modifiedJson.getJSONObject(farmerName).put("ITEM", filteredItemArray);
+        }
+
+        return modifiedJson; // Return the modified JSON
+    }
+
+
+    private Map<String, Integer> findColumnIndexes(Row headerRow) {
+        Map<String, Integer> columnIndexes = new HashMap<>();
+        for (int cellIndex = 0; cellIndex < headerRow.getPhysicalNumberOfCells(); cellIndex++) {
+            String header = headerRow.getCell(cellIndex).getStringCellValue().replace(" ", "").toUpperCase();
+            columnIndexes.put(header, cellIndex);
+        }
+        return columnIndexes;
+    }
+
+    private String getCellValueAsString(Cell cell, FormulaEvaluator formulaEvaluator) {
+        if (cell != null) {
+            switch (cell.getCellType()) {
+                case STRING:
+                    return cell.getStringCellValue();
+                case NUMERIC:
+                    if (DateUtil.isCellDateFormatted(cell)) {
+                        return cell.getDateCellValue().toString();
+                    } else {
+                        return String.valueOf(cell.getNumericCellValue());
+                    }
+                case BOOLEAN:
+                    return String.valueOf(cell.getBooleanCellValue());
+                case FORMULA:
+                    CellValue cellValue = formulaEvaluator.evaluate(cell);
+                    switch (cellValue.getCellType()) {
+                        case STRING:
+                            return cellValue.getStringValue();
+                        case NUMERIC:
+                            return String.valueOf(cellValue.getNumberValue());
+                        case BOOLEAN:
+                            return String.valueOf(cellValue.getBooleanValue());
+                    }
+                default:
+                    return "";
             }
         }
+        return "";
     }
+
+    private JSONObject modifyJsonStructure(JSONObject originalJson) {
+        JSONObject modifiedJson = new JSONObject();
+
+        for (String farmerName : originalJson.keySet()) {
+            JSONArray farmerDataArray = originalJson.getJSONArray(farmerName);
+            JSONObject farmerDataObject = new JSONObject();
+
+            for (int i = 0; i < farmerDataArray.length(); i++) {
+                JSONObject rowData = farmerDataArray.getJSONObject(i);
+
+                for (String header : rowData.keySet()) {
+                    if (!farmerDataObject.has(header)) {
+                        farmerDataObject.put(header, new JSONArray());
+                    }
+                    JSONArray headerArray = farmerDataObject.getJSONArray(header);
+                    headerArray.put(rowData.getString(header));
+                }
+            }
+
+            modifiedJson.put(farmerName, farmerDataObject);
+        }
+
+        return modifiedJson;
+    }
+
+    private JSONObject modifyJsonStructureWithSum(JSONObject originalJson) {
+        JSONObject modifiedJson = new JSONObject();
+
+        for (String farmerName : originalJson.keySet()) {
+            JSONArray farmerDataArray = originalJson.getJSONArray(farmerName);
+            JSONObject farmerDataObject = new JSONObject();
+
+            // Initialize BagSum and KgSum
+            JSONObject bagSum = new JSONObject();
+            JSONObject kgSum = new JSONObject();
+
+            for (int i = 0; i < farmerDataArray.length(); i++) {
+                JSONObject rowData = farmerDataArray.getJSONObject(i);
+
+                // Extract relevant data
+                String rate = rowData.getString("Rate");
+                String qty = rowData.getString("QTY");
+
+                // Add quantity to BagSum or KgSum based on Rate
+                if (!rate.isEmpty() && !qty.isEmpty()) {
+                    double rateValue = Double.parseDouble(rate);
+                    double qtyValue = Double.parseDouble(qty);
+
+                    // Determine whether to use BagSum or KgSum based on Rate
+                    String sumKey = rateValue >= 100.0 ? "BAGSUM" : "KGSUM";
+
+                    // Add the quantity to the appropriate sum
+                    JSONObject sumObject = sumKey.equals("BAGSUM") ? bagSum : kgSum;
+                    if (!sumObject.has(rate)) {
+                        sumObject.put(rate, new JSONArray());
+                    }
+                    sumObject.getJSONArray(rate).put(String.valueOf(qtyValue)); // Convert qtyValue to String
+                }
+
+                // Add other data to the farmerDataObject
+                for (String header : rowData.keySet()) {
+                    if (!header.equals("QTY")) {
+                        if (!farmerDataObject.has(header)) {
+                            farmerDataObject.put(header, new JSONArray());
+                        }
+                        JSONArray headerArray = farmerDataObject.getJSONArray(header);
+                        headerArray.put(rowData.getString(header));
+                    }
+                }
+            }
+
+            // Add BagSum and KgSum to the farmerDataObject
+            farmerDataObject.put("BAGSUM", bagSum);
+            farmerDataObject.put("KGSUM", kgSum);
+
+            // Add the modified farmerDataObject to the modifiedJson
+            modifiedJson.put(farmerName, farmerDataObject);
+        }
+
+        return modifiedJson;
+    }
+
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
     public byte[] generatePdfFromJson(String jsonData) {

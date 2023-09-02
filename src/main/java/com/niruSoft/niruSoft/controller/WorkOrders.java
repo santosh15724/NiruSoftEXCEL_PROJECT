@@ -1,5 +1,7 @@
 package com.niruSoft.niruSoft.controller;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itextpdf.io.font.FontConstants;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
@@ -25,6 +27,11 @@ import com.niruSoft.niruSoft.service.GenerateBillService;
 import com.niruSoft.niruSoft.utils.CustomCellRenderer;
 import com.niruSoft.niruSoft.utils.ExcelValidator;
 //import com.niruSoft.niruSoft.utils.NoBottomBorderCellRenderer;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.poi.ss.usermodel.CellStyle;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -44,6 +51,7 @@ import java.util.*;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import static org.apache.commons.compress.utils.IOUtils.toByteArray;
 import static org.apache.poi.ss.util.CellUtil.setFont;
 
 @RestController
@@ -60,34 +68,219 @@ public class WorkOrders {
         this.generateBillService = generateBillService;
     }
 
-
     @PostMapping("/uploadExcel")
     public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
         boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
 
         if (!file.isEmpty() && isValid) {
-            String jsonData = generateBillService.validateServices(file.getInputStream());
+            JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
 
-            // Generate the PDF from processed data
-            byte[] pdfBytes = generateBillService.generatePdfFromJson(jsonData);
+            // Convert JSONObject to a formatted JSON string for printing
+            String jsonData = excelData.toString(4); // Use an indentation of 4 spaces for formatting
+            System.out.println("Excel Data JSON:\n" + jsonData);
 
-            // Prepare the PDF response
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", "processedData.pdf");
+            // Rest of your code...
 
-            InputStreamResource inputStreamResource = new InputStreamResource(new ByteArrayInputStream(pdfBytes));
-
-            return ResponseEntity.ok()
-                    .headers(headers)
-                    .contentType(MediaType.APPLICATION_PDF)
-                    .body(inputStreamResource);
+            // Return the response...
         } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
+        }
+        return null;
+    }
+
+
+
+//    @PostMapping("/uploadExcel")
+//    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
+//        boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
+//
+//        if (!file.isEmpty() && isValid) {
+//            Map<String, Map<String, List<String>>> processExcelData = generateBillService.processExcelData(file.getInputStream());
+//            ObjectMapper objectMapper = new ObjectMapper();
+//            String jsonData = objectMapper.writeValueAsString(processExcelData);
+//            System.out.println(jsonData);
+//            // Generate the PDF from processed data
+//            byte[] pdfBytes = generateBillService.generatePdfFromJson(jsonData);
+//
+//            // Prepare the PDF response
+//            HttpHeaders headers = new HttpHeaders();
+//            headers.setContentType(MediaType.APPLICATION_PDF);
+//            headers.setContentDispositionFormData("attachment", "processedData.pdf");
+//
+//            InputStreamResource inputStreamResource = new InputStreamResource(new ByteArrayInputStream(pdfBytes));
+//
+//            return ResponseEntity.ok()
+//                    .headers(headers)
+//                    .contentType(MediaType.APPLICATION_PDF)
+//                    .body(inputStreamResource);
+//        } else {
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
+//        }
+//    }
+
+
+
+
+//    @PostMapping("/uploadExcel")
+//    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
+//        boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
+//        if (!file.isEmpty() && isValid) {
+//            Map<String, Map<String, Map<String, List<String>>>>excelData = generateBillService.processExcelData(file.getInputStream());
+//            ObjectMapper objectMapper = new ObjectMapper();
+//            String jsonData = objectMapper.writeValueAsString(excelData);
+//            System.out.println(jsonData);
+//
+////            generatePdfFromJson(excelData);
+//            // Create a new PDF document
+////            PDDocument document = new PDDocument();
+//
+////            // Iterate through the JSON data and add it to the PDF
+////            for (Map<String, Map<String, Map<String, List<String>>>>: excelData.entrySet()) {
+////                String farmerName = entry.getKey();
+////                Map<String, List<String>> data = entry.getValue();
+////
+////                PDPage page = new PDPage(PDRectangle.A3);
+////                document.addPage(page);
+////
+////                try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+////                    contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12);
+////
+////                    // Start a new text block for each farmer
+////                    contentStream.beginText();
+////                    contentStream.newLineAtOffset(50, 700);
+////
+////                    contentStream.showText("Farmer Name: " + farmerName);
+////                    contentStream.newLine();
+////
+////                    // Add other data fields as needed
+////                    for (Map.Entry<String, List<String>> fieldEntry : data.entrySet()) {
+////                        String fieldName = fieldEntry.getKey();
+////                        List<String> fieldValues = fieldEntry.getValue();
+////
+////                        contentStream.showText(fieldName + ": " + String.join(", ", fieldValues));
+////                        contentStream.newLine();
+////                    }
+////
+////                    // End the text block for this farmer
+////                    contentStream.endText();
+////                }
+////            }
+//
+//            // Save the PDF to a byte array
+////            ByteArrayOutputStream = new ByteArrayOutputStream();
+////            document.save(byteArrayOutputStream);
+////            document.close();
+//
+//            // Prepare the PDF response
+//            HttpHeaders headers = new HttpHeaders();
+//            headers.setContentType(MediaType.APPLICATION_PDF);
+//            headers.setContentDispositionFormData("attachment", "processedData.pdf");
+//
+////            InputStreamResource inputStreamResource = new InputStreamResource(new ByteArrayInputStream(toByteArray()));
+//
+////            return ResponseEntity.ok()
+////                    .headers(headers)
+////                    .contentType(MediaType.APPLICATION_PDF)
+////                    .body(inputStreamResource);
+////        } else {
+//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
+////        }
+//    }
+//        return null;
+//    }
+
+
+    public byte[] generatePdfFromJson(Map<String, Map<String, List<String>>> excelData) {
+//      public void  gettingvalue(String topLevelKey, String combinedLine){
+//
+//        }
+        String businessName = "BCP MUNSWAMY";
+        String date = "14-8-2023";
+        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
+        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER"); // Example products
+        String rate = "90";
+        String amount = "89";
+        try {
+            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+            PdfWriter pdfWriter = new PdfWriter(outputStream);
+
+            PageSize a3PageSize = PageSize.A3;
+
+            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+            pdfDocument.setDefaultPageSize(a3PageSize);
+            Document document = new Document(pdfDocument);
+
+            // Header Section
+            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
+
+            // Body Section
+//            addBody(document, particularsList, rate, amount);
+
+            // Footer Section
+//            addFooter(document);
+
+            document.close();
+
+            document.close();
+
+            return outputStream.toByteArray();
+        } catch (Exception e) {
+            e.printStackTrace();
+            return new byte[0];
         }
     }
 
 
+
+
+
+
+
+
+//    private byte[] generatePdfFromJson(String jsonData) throws IOException {
+//        PDDocument document = new PDDocument();
+//        PDPage page = new PDPage(PDRectangle.A4);
+//        document.addPage(page);
+//
+//        try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+//            contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12);
+////            contentStream.newLineAtOffset(50, 700);
+//
+//            // Parse the JSON data
+//            ObjectMapper objectMapper = new ObjectMapper();
+//            Map<String, Map<String, List<String>>> dataMap = objectMapper.readValue(jsonData, new TypeReference<Map<String, Map<String, List<String>>>>() {
+//            });
+//
+//            // Iterate through the JSON data and add it to the PDF
+//            for (Map.Entry<String, Map<String, List<String>>> entry : dataMap.entrySet()) {
+//                String farmerName = entry.getKey();
+//                Map<String, List<String>> farmerData = entry.getValue();
+//
+//                contentStream.showText("Farmer Name: " + farmerName);
+//                contentStream.newLine();
+//
+//                // Add other data fields as needed
+//                for (Map.Entry<String, List<String>> fieldEntry : farmerData.entrySet()) {
+//                    String fieldName = fieldEntry.getKey();
+//                    List<String> fieldValues = fieldEntry.getValue();
+//
+//                    contentStream.showText(fieldName + ": " + String.join(", ", fieldValues));
+//                    contentStream.newLine();
+//                }
+//
+//                contentStream.newLine();
+//            }
+//        }
+//
+//        // Save the PDF to a byte array
+//        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+//        document.save(byteArrayOutputStream);
+//        document.close();
+//
+//        return byteArrayOutputStream.toByteArray();
+//    }
+//
+//
 
 
     //    private void addJsonObjectToDocument(Document document, JSONObject jsonObject, int level, Map<String, List<String>> keyValueMap) {
