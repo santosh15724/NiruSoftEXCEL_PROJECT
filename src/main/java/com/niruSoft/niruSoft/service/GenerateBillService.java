@@ -27,6 +27,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
 import java.util.stream.IntStream;
@@ -484,6 +486,23 @@ public class GenerateBillService implements GenerateBillImpl {
     }
 
     private void addHeader(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
+        String date = null;
+        List<String> dateList = new ArrayList<>();
+        JsonNode dateNode = subObjectData.get("DATE");
+        if (dateNode != null && dateNode.isArray()) {
+            for (JsonNode dateValue : dateNode) {
+                date = formatDate(dateValue.asText());
+            }
+        }
+        JsonNode dateNode2 = subObjectData.get("ITEM");
+
+        if (dateNode2 != null && dateNode2.isArray()) {
+            for (JsonNode dateValue : dateNode2) {
+                String value = dateValue.asText();
+                dateList.add(value);
+            }
+        }
+
         ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
         ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
         Image image = new Image(imageData);
@@ -495,28 +514,107 @@ public class GenerateBillService implements GenerateBillImpl {
 
         Paragraph paragraph = new Paragraph()
                 .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-                .setFontSize(25)
-                .setMarginTop(25) // Add some top margin for spacing
+                .setFontSize(70)
+                .setMarginTop(30) // Add some top margin for spacing
                 .setWidth(imageWidth)
                 .setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
 
         TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
         paragraph.addTabStops(tabStop);
 
-        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
-                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)))
-                .add(new Text(subObjectName) // Add the subObjectName with bold font
-                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
+        StringBuilder largeSpace = new StringBuilder();
+        for (int i = 0; i < 70; i++) { // Add 100 spaces for a large space
+            largeSpace.append(" ");
+        }
+
+        Paragraph headerParagraph = new Paragraph()
+                .setMarginLeft(40)
+                .add(new Text("M/s: ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(19))
+                .add(new Text("      ")
+                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(18))
+                .add(new Text(subObjectName + largeSpace.toString()) // Add the subObjectName with a large space
+                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(20))
+                .add(new Text("DATE:").setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(18))
+                .add(new Text("    ")
+                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(17))
+                .add(new Text(date)
+                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+                        .setFontSize(18));
+
+        System.out.println(dateList);
+        String datesOfparticuler = String.join(",   ", dateList);
+
+
+        Paragraph headerParagraph2 = new Paragraph()
+                .setMarginRight(17)
+                .add(new Text("Particular: ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(19))
+                .add(new Text("    ")
+                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(18))
+                .add(new Text(datesOfparticuler)
+                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(18));
 
         document.add(paragraph);
-
-        // Add a line separator
-        LineSeparator separator = new LineSeparator(new SolidLine(1f));
-        document.add(separator);
-
-        // Add the businessParagraph after the separator
-        document.add(businessParagraph);
+        document.add(headerParagraph);
+        document.add(headerParagraph2);
     }
+
+
+    private String formatDate(String originalDate) {
+        try {
+            SimpleDateFormat inputFormat = new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy", Locale.US);
+            Date date = inputFormat.parse(originalDate);
+
+            SimpleDateFormat outputFormat = new SimpleDateFormat("dd-MM-yyyy", Locale.US);
+            return outputFormat.format(date);
+        } catch (ParseException e) {
+            e.printStackTrace();
+        }
+        return "";
+    }
+
+
+//    private void addHeader(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
+//        String date = null;
+//        JsonNode dateNode = subObjectData.get("DATE");
+//        if (dateNode != null && dateNode.isArray()) {
+//            for (JsonNode dateValue : dateNode) {
+//                date = dateValue.asText();
+//
+//            }
+//        }
+//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
+//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
+//        Image image = new Image(imageData);
+//
+//        float imageWidth = PageSize.A3.getWidth() * 0.94f; // Use A3 size directly
+//        image.setWidth(imageWidth);
+//
+//        document.add(image);
+//
+//        Paragraph paragraph = new Paragraph()
+//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+//                .setFontSize(35)
+//                .setMarginTop(30) // Add some top margin for spacing
+//                .setWidth(imageWidth)
+//                .setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
+//
+//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
+//        paragraph.addTabStops(tabStop);
+//
+//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
+//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)))
+//                .add(new Text(subObjectName) // Add the subObjectName with bold font
+//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+//                .add(new Tab())
+//                .add(new Text("DATE: ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)))
+//                .add(new Text(date) // Add the date
+//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)));
+//
+//        document.add(paragraph);
+//
+//
+//        document.add(businessParagraph);
+//    }
 
 
 //    private void addHeader(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
@@ -721,7 +819,6 @@ public class GenerateBillService implements GenerateBillImpl {
 //PageSize a3PageSize = PageSize.A3;
 //                pdfDocument.setDefaultPageSize(a3PageSize);
 //                Document document = new Document(pdfDocument);
-
 
 
 //    private void addHeader(Document document,String subObjectName,JsonNode subObjectData) throws IOException {
