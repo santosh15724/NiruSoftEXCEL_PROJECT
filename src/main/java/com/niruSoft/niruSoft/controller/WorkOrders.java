@@ -326,46 +326,46 @@ public class WorkOrders {
 //    }
 
 
-    public byte[] generatePdfFromJson(Map<String, Map<String, List<String>>> excelData) {
-//      public void  gettingvalue(String topLevelKey, String combinedLine){
+//    public byte[] generatePdfFromJson(Map<String, Map<String, List<String>>> excelData) {
+////      public void  gettingvalue(String topLevelKey, String combinedLine){
+////
+////        }
+//        String businessName = "BCP MUNSWAMY";
+//        String date = "14-8-2023";
+//        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
+//        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER"); // Example products
+//        String rate = "90";
+//        String amount = "89";
+//        try {
+//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+//            PdfWriter pdfWriter = new PdfWriter(outputStream);
 //
+//            PageSize a3PageSize = PageSize.A3;
+//
+//            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+//            pdfDocument.setDefaultPageSize(a3PageSize);
+//            Document document = new Document(pdfDocument);
+//
+//            // Header Section
+//            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
+//
+//            // Body Section
+////            addBody(document, particularsList, rate, amount);
+//
+//            // Footer Section
+////            addFooter(document);
+//
+//            document.close();
+//
+//            document.close();
+//
+//            return outputStream.toByteArray();
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//            return new byte[0];
 //        }
-        String businessName = "BCP MUNSWAMY";
-        String date = "14-8-2023";
-        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
-        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER"); // Example products
-        String rate = "90";
-        String amount = "89";
-        try {
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            PdfWriter pdfWriter = new PdfWriter(outputStream);
-
-            PageSize a3PageSize = PageSize.A3;
-
-            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-            pdfDocument.setDefaultPageSize(a3PageSize);
-            Document document = new Document(pdfDocument);
-
-            // Header Section
-            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
-
-            // Body Section
-//            addBody(document, particularsList, rate, amount);
-
-            // Footer Section
-//            addFooter(document);
-
-            document.close();
-
-            document.close();
-
-            return outputStream.toByteArray();
-        } catch (Exception e) {
-            e.printStackTrace();
-            return new byte[0];
-        }
-    }
-
+//    }
+//
 
 //    private byte[] generatePdfFromJson(String jsonData) throws IOException {
 //        PDDocument document = new PDDocument();
@@ -490,158 +490,158 @@ public class WorkOrders {
 //}
 
 
-    @GetMapping("/generate-pdf")
-    public ResponseEntity<byte[]> generatePdf() {
-        String businessName = "BCP MUNSWAMY";
-        String date = "14-8-2023";
-        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
-        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER"); // Example products
-        String rate = "90";
-        String amount = "89";
-        try {
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-            PdfWriter pdfWriter = new PdfWriter(outputStream);
+//    @GetMapping("/generate-pdf")
+//    public ResponseEntity<byte[]> generatePdf() {
+//        String businessName = "BCP MUNSWAMY";
+//        String date = "14-8-2023";
+//        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
+//        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER"); // Example products
+//        String rate = "90";
+//        String amount = "89";
+//        try {
+//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+//            PdfWriter pdfWriter = new PdfWriter(outputStream);
+//
+//            PageSize a3PageSize = PageSize.A3;
+//
+//            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+//            pdfDocument.setDefaultPageSize(a3PageSize);
+//            Document document = new Document(pdfDocument);
+//
+//            // Header Section
+//            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
+//
+//            // Body Section
+//            addBody(document, particularsList, rate, amount);
+//
+//            // Footer Section
+//            addFooter(document);
+//
+//            document.close();
+//
+//            byte[] pdfBytes = outputStream.toByteArray();
+//
+//            HttpHeaders headers = new HttpHeaders();
+//            headers.setContentType(MediaType.APPLICATION_PDF);
+//            headers.setContentDisposition(ContentDisposition.builder("inline").filename("generated-pdf.pdf").build());
+//
+//            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+//        }
+//    }
+//
+//    private void addHeader(Document document, PageSize a3PageSize, String businessName, String date, List<String> particularsList, List<String> productList) throws IOException {
+//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
+//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
+//        Image image = new Image(imageData);
+//
+//        float imageWidth = a3PageSize.getWidth() * 0.94f;
+//        image.setWidth(imageWidth);
+//
+//        document.add(image);
+//
+//        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
+//                .setWidth(imageWidth).setHorizontalAlignment(HorizontalAlignment.CENTER);
+//
+//
+//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
+//        paragraph.addTabStops(tabStop);
+//
+//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
+//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
+//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
+//
+//        Text dateText = new Text("DATE :    " + date);
+////                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
+//
+//// Add businessDiv and dateText with space between them
+//        paragraph.add(businessParagraph);
+//        paragraph.add(new Text("                              "));
+//        paragraph.add(dateText);
+//
+//        document.add(paragraph);
+//
+//
+//        // Add the "Particulars" line with dynamic values
+//        StringBuilder particularsLine = new StringBuilder("Particulars : ");
+//        for (int i = 0; i < particularsList.size(); i++) {
+//            if (i > 0) {
+//                particularsLine.append("," + "\t");
+//            }
+//            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
+//        }
+//
+//        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
+//                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
+//
+//        document.add(particularsParagraph);
+//
+//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
+//        document.add(separator);
+//
+//    }
 
-            PageSize a3PageSize = PageSize.A3;
-
-            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-            pdfDocument.setDefaultPageSize(a3PageSize);
-            Document document = new Document(pdfDocument);
-
-            // Header Section
-            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
-
-            // Body Section
-            addBody(document, particularsList, rate, amount);
-
-            // Footer Section
-            addFooter(document);
-
-            document.close();
-
-            byte[] pdfBytes = outputStream.toByteArray();
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDisposition(ContentDisposition.builder("inline").filename("generated-pdf.pdf").build());
-
-            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
-        } catch (IOException e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-        }
-    }
-
-    private void addHeader(Document document, PageSize a3PageSize, String businessName, String date, List<String> particularsList, List<String> productList) throws IOException {
-        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
-        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
-        Image image = new Image(imageData);
-
-        float imageWidth = a3PageSize.getWidth() * 0.94f;
-        image.setWidth(imageWidth);
-
-        document.add(image);
-
-        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
-                .setWidth(imageWidth).setHorizontalAlignment(HorizontalAlignment.CENTER);
-
-
-        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
-        paragraph.addTabStops(tabStop);
-
-        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
-                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
-                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
-
-        Text dateText = new Text("DATE :    " + date);
-//                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
-
-// Add businessDiv and dateText with space between them
-        paragraph.add(businessParagraph);
-        paragraph.add(new Text("                              "));
-        paragraph.add(dateText);
-
-        document.add(paragraph);
-
-
-        // Add the "Particulars" line with dynamic values
-        StringBuilder particularsLine = new StringBuilder("Particulars : ");
-        for (int i = 0; i < particularsList.size(); i++) {
-            if (i > 0) {
-                particularsLine.append("," + "\t");
-            }
-            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
-        }
-
-        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
-                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
-
-        document.add(particularsParagraph);
-
-        LineSeparator separator = new LineSeparator(new SolidLine(1f));
-        document.add(separator);
-
-    }
-
-    private void addBody(Document document, List<String> particularsList, String rate, String amount) throws IOException {
-        // Create a Div element for the table
-        Div tableDiv = new Div().setWidth(UnitValue.createPercentValue(100)).setHeight(UnitValue.createPercentValue(100));
-
-        // Define a style for the table cells
-        Style cellStyle = new Style().setPadding(10) // Increase padding for cell content
-                .setFontSize(20).setTextAlignment(TextAlignment.CENTER) // Center-align text
-                .setVerticalAlignment(VerticalAlignment.MIDDLE);
-
-        // Define a style for the header cells
-        Style cellStyleHeader = new Style().setPadding(8) // Increase padding for cell content
-                .setFontSize(18) // Increase font size for cell content
-                .setTextAlignment(TextAlignment.CENTER) // Center-align text
-                .setVerticalAlignment(VerticalAlignment.MIDDLE);
-
-        // Create the table for SLno, Brief, Rate, and Amount
-        Table table = new Table(UnitValue.createPercentArray(new float[]{14, 54, 13, 18})).useAllAvailableWidth().setBorder(new SolidBorder(ColorConstants.BLACK, 1));
-
-        // Add table headers
-        table.addCell(createCell("SLno", true).addStyle(cellStyleHeader));
-        table.addCell(createCell("Brief", true).addStyle(cellStyleHeader));
-        table.addCell(createCell("Rate", true).addStyle(cellStyleHeader));
-        table.addCell(createCell("Amount", true).addStyle(cellStyleHeader));
-
-
-        // Usage in your code
-        Color customBorderColor = new DeviceRgb(255, 255, 255);
-        int numRows = (int) Math.ceil((double) particularsList.size() / 4); // Calculate number of rows needed
-
-        for (int i = 0; i < numRows; i++) {
-            boolean isLastRow = i == numRows - 1;
-
-            Cell cell = createCell(String.valueOf(i + 1), false);
-            applyCellStyle(cell, isLastRow, customBorderColor);
-            table.addCell(cell);
-
-            cell = createCell(getParticularsText(particularsList, i), false);
-            applyCellStyle(cell, isLastRow, customBorderColor);
-            table.addCell(cell);
-
-            cell = createCell(rate, false);
-            applyCellStyle(cell, isLastRow, customBorderColor);
-
-            if (i == numRows - 1) {
-                cell = createCell(amount, false);
-                applyCellStyle(cell, true, null);
-            } else {
-                cell = createCell("", false);
-                cell.setBorder(Border.NO_BORDER); // Empty cell in non-last rows
-            }
-            table.addCell(cell);
-        }
-
-        tableDiv.add(table);
-        document.add(tableDiv);
-        LineSeparator separator = new LineSeparator(new SolidLine(1f));
-        Div separatorDiv = new Div().add(separator).setMarginTop(10).setMarginBottom(10);
-        document.add(separatorDiv);
-    }
+//    private void addBody(Document document, List<String> particularsList, String rate, String amount) throws IOException {
+//        // Create a Div element for the table
+//        Div tableDiv = new Div().setWidth(UnitValue.createPercentValue(100)).setHeight(UnitValue.createPercentValue(100));
+//
+//        // Define a style for the table cells
+//        Style cellStyle = new Style().setPadding(10) // Increase padding for cell content
+//                .setFontSize(20).setTextAlignment(TextAlignment.CENTER) // Center-align text
+//                .setVerticalAlignment(VerticalAlignment.MIDDLE);
+//
+//        // Define a style for the header cells
+//        Style cellStyleHeader = new Style().setPadding(8) // Increase padding for cell content
+//                .setFontSize(18) // Increase font size for cell content
+//                .setTextAlignment(TextAlignment.CENTER) // Center-align text
+//                .setVerticalAlignment(VerticalAlignment.MIDDLE);
+//
+//        // Create the table for SLno, Brief, Rate, and Amount
+//        Table table = new Table(UnitValue.createPercentArray(new float[]{14, 54, 13, 18})).useAllAvailableWidth().setBorder(new SolidBorder(ColorConstants.BLACK, 1));
+//
+//        // Add table headers
+//        table.addCell(createCell("SLno", true).addStyle(cellStyleHeader));
+//        table.addCell(createCell("Brief", true).addStyle(cellStyleHeader));
+//        table.addCell(createCell("Rate", true).addStyle(cellStyleHeader));
+//        table.addCell(createCell("Amount", true).addStyle(cellStyleHeader));
+//
+//
+//        // Usage in your code
+//        Color customBorderColor = new DeviceRgb(255, 255, 255);
+//        int numRows = (int) Math.ceil((double) particularsList.size() / 4); // Calculate number of rows needed
+//
+//        for (int i = 0; i < numRows; i++) {
+//            boolean isLastRow = i == numRows - 1;
+//
+//            Cell cell = createCell(String.valueOf(i + 1), false);
+//            applyCellStyle(cell, isLastRow, customBorderColor);
+//            table.addCell(cell);
+//
+//            cell = createCell(getParticularsText(particularsList, i), false);
+//            applyCellStyle(cell, isLastRow, customBorderColor);
+//            table.addCell(cell);
+//
+//            cell = createCell(rate, false);
+//            applyCellStyle(cell, isLastRow, customBorderColor);
+//
+//            if (i == numRows - 1) {
+//                cell = createCell(amount, false);
+//                applyCellStyle(cell, true, null);
+//            } else {
+//                cell = createCell("", false);
+//                cell.setBorder(Border.NO_BORDER); // Empty cell in non-last rows
+//            }
+//            table.addCell(cell);
+//        }
+//
+//        tableDiv.add(table);
+//        document.add(tableDiv);
+//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
+//        Div separatorDiv = new Div().add(separator).setMarginTop(10).setMarginBottom(10);
+//        document.add(separatorDiv);
+//    }
 
     private void applyCellStyle(Cell cell, boolean isLastCell, Color customBorderColor) {
         if (!isLastCell) {

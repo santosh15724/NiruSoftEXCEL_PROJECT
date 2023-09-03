@@ -464,7 +464,7 @@ public class GenerateBillService implements GenerateBillImpl {
                             addHeader(document, subObjectName, subObjectData);
 
                             // Add body section
-//                            addBody(document, subObjectData);
+                            addBody(document, subObjectName, subObjectData);
 
                             // Add footer section
 //                            addFooter(document, subObjectName, subObjectData);
@@ -556,6 +556,181 @@ public class GenerateBillService implements GenerateBillImpl {
         document.add(paragraph);
         document.add(headerParagraph);
         document.add(headerParagraph2);
+    }
+
+//    private void  addBody(Document document, String subObjectName, JsonNode subObjectData){
+//
+//        try {
+//            // Get the "BAGSUM" object
+//            JsonNode bagsumNode = subObjectData.get("BAGSUM");
+//
+//            if (bagsumNode != null && bagsumNode.isObject()) {
+//                // Initialize variables to store sum, rate, and amount
+//                double sum = 0.0;
+//                double rate = 0.0;
+//
+//                // Iterate through all keys within the "BAGSUM" object
+//                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext();) {
+//                    String key = it.next();
+//                    JsonNode arrayToCalculate = bagsumNode.get(key);
+//
+//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+//                        // Iterate through the values in the array and calculate the sum
+//                        for (JsonNode value : arrayToCalculate) {
+//                            String stringValue = value.asText();
+//                            double numericValue = Double.parseDouble(stringValue);
+//                            sum += numericValue;
+//                        }
+//                    }
+//                }
+//
+//                // Get the "Rate" and "Amount" from the subObjectData
+//                JsonNode rateNode = subObjectData.get("Rate");
+//                JsonNode amountNode = subObjectData.get("Amount");
+//
+//                if (rateNode != null && rateNode.isArray() && rateNode.size() > 0) {
+//                    rate = Double.parseDouble(rateNode.get(0).asText());
+//                }
+//
+//                if (amountNode != null && !amountNode.isMissingNode()) {
+//                    double amount = Double.parseDouble(amountNode.asText());
+//
+//                    // Print the desired output
+//                    System.out.println("Brief: " + sum + " Rate: " + rate + " Amount: " + (sum * rate));
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
+
+//    private void addBody(Document document, String subObjectName, JsonNode subObjectData) {
+//        try {
+//            // Get the "BAGSUM" object
+//            JsonNode bagsumNode = subObjectData.get("BAGSUM");
+//
+//            if (bagsumNode != null && bagsumNode.isObject()) {
+//                int numRates = bagsumNode.size(); // Number of rates
+//
+//                // Initialize arrays to store rate, amount, and brief sum for each rate
+//                double[] rates = new double[numRates];
+//                double[] amounts = new double[numRates];
+//                double[] briefSums = new double[numRates];
+//
+//                int index = 0; // Index to keep track of the current position in arrays
+//
+//                // Iterate through all keys within the "BAGSUM" object
+//                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext();) {
+//                    String rateKey = it.next();
+//                    double rate = Double.parseDouble(rateKey);
+//                    JsonNode arrayToCalculate = bagsumNode.get(rateKey);
+//
+//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+//                        // Initialize variables to store amount and brief sum for the current rate
+//                        double amount = 0.0;
+//                        double briefSum = 0.0;
+//
+//                        // Iterate through the values in the array and calculate the amount and brief sum
+//                        for (JsonNode value : arrayToCalculate) {
+//                            String stringValue = value.asText();
+//                            double numericValue = Double.parseDouble(stringValue);
+//                            amount += numericValue * rate;
+//                            briefSum += numericValue;
+//                        }
+//
+//                        // Store the calculated values in arrays
+//                        rates[index] = rate;
+//                        amounts[index] = amount;
+//                        briefSums[index] = briefSum;
+//
+//                        index++; // Move to the next position in arrays
+//                    }
+//                }
+//
+//                // Now you have arrays containing the calculated values for each rate
+//                // You can access these arrays for further processing or printing if needed
+//                for (int i = 0; i < numRates; i++) {
+//                    System.out.println("Rate: " + rates[i] + ", Brief: " + briefSums[i] + ", Amount: " + amounts[i]);
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
+//
+//
+
+
+
+
+
+
+
+    private void addBody(Document document, String subObjectName, JsonNode subObjectData) {
+        try {
+            // Get the "BAGSUM" object
+            JsonNode bagsumNode = subObjectData.get("BAGSUM");
+
+            if (bagsumNode != null && bagsumNode.isObject()) {
+                int numRates = bagsumNode.size(); // Number of rates
+
+                // Initialize arrays to store rate, amount, and brief sum for each rate
+                BigDecimal[] rates = new BigDecimal[numRates];
+                BigDecimal[] amounts = new BigDecimal[numRates];
+                BigDecimal[] briefSums = new BigDecimal[numRates];
+
+                int index = 0; // Index to keep track of the current position in arrays
+
+                // Iterate through all keys within the "BAGSUM" object
+                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext();) {
+                    String rateKey = it.next();
+                    BigDecimal rate;
+                    String rateString = "Rate: " + rateKey; // Default rate string
+
+                    if (!"NO SALE".equals(rateKey)) {
+                        rate = new BigDecimal(rateKey);
+                    } else {
+                        rate = BigDecimal.ZERO; // Set rate to BigDecimal.ZERO for "NO SALE"
+                        rateString = "Rate: NO SALE"; // Hard-coded "Rate: NO SALE" for the output
+                    }
+
+                    JsonNode arrayToCalculate = bagsumNode.get(rateKey);
+
+                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+                        // Initialize variables to store amount and brief sum for the current rate
+                        BigDecimal amount = BigDecimal.ZERO;
+                        BigDecimal briefSum = BigDecimal.ZERO;
+
+                        // Iterate through the values in the array and calculate the amount and brief sum
+                        for (JsonNode value : arrayToCalculate) {
+                            String stringValue = value.asText();
+
+                            // Check if the value is "NO SALE" and skip it
+                            if (!"NO SALE".equals(stringValue)) {
+                                BigDecimal numericValue = new BigDecimal(stringValue);
+                                amount = amount.add(numericValue.multiply(rate));
+                                briefSum = briefSum.add(numericValue);
+                            }
+                        }
+
+                        // Store the calculated values in arrays
+                        rates[index] = rate;
+                        amounts[index] = amount;
+                        briefSums[index] = briefSum;
+
+                        // Output the rate string and calculated values
+                        System.out.println(rateString + ", Brief: " + briefSums[index] + ", Amount: " + amounts[index]);
+
+                        index++; // Move to the next position in arrays
+                    }
+                }
+
+                // Now you have arrays containing the calculated values for each rate
+                // You can access these arrays for further processing or printing if needed
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
 
