@@ -760,36 +760,268 @@ public class GenerateBillService implements GenerateBillImpl {
 //            e.printStackTrace();
 //        }
 //    }
+//    private void addBody(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
+//        List<Map<String, BigDecimal>> detailsList = new ArrayList<>();
+//        List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
+//        try {
+//            // Get the "KGSUM" object
+//            JsonNode kgsumNode = subObjectData.get("KGSUM");
+//
+//            if (kgsumNode != null && kgsumNode.isObject()) {
+//                for (Iterator<String> it = kgsumNode.fieldNames(); it.hasNext(); ) {
+//                    String rateKey = it.next();
+//                    BigDecimal rate = new BigDecimal(rateKey);
+//                    JsonNode arrayToCalculate = kgsumNode.get(rateKey);
+//
+//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+//                        for (JsonNode value : arrayToCalculate) {
+//                            String stringValue = value.asText();
+//                            BigDecimal numericValue = new BigDecimal(stringValue);
+//                            BigDecimal amount = numericValue.multiply(rate);
+//                            Map<String, BigDecimal> arrayDetails = new HashMap<>();
+//                            arrayDetails.put("Brief", numericValue);
+//                            arrayDetails.put("Rate", rate);
+//                            arrayDetails.put("Amount", amount);
+//                            detailsList.add(arrayDetails);
+//                        }
+//                    }
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//        try {
+//            // Get the "BAGSUM" object
+//            JsonNode bagsumNode = subObjectData.get("BAGSUM");
+//
+//            if (bagsumNode != null && bagsumNode.isObject()) {
+//                int numRates = bagsumNode.size(); // Number of rates
+//
+//                int index = 0; // Index to keep track of the current position in arrays
+//
+//                // Iterate through all keys within the "BAGSUM" object
+//                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
+//                    String rateKey = it.next();
+//                    BigDecimal rate;
+//                    String rateString = "Rate: " + rateKey; // Default rate string
+//
+//                    if (!"NO SALE".equals(rateKey)) {
+//                        rate = new BigDecimal(rateKey);
+//                    } else {
+//                        rate = BigDecimal.ZERO; // Set rate to BigDecimal.ZERO for "NO SALE"
+//                        rateString = "Rate: NO SALE"; // Hard-coded "Rate: NO SALE" for the output
+//                    }
+//
+//                    JsonNode arrayToCalculate = bagsumNode.get(rateKey);
+//
+//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+//                        // Initialize variables to store amount and brief sum for the current rate
+//                        BigDecimal amount = BigDecimal.ZERO;
+//                        BigDecimal briefSum = BigDecimal.ZERO;
+//
+//                        // Iterate through the values in the array and calculate the amount and brief sum
+//                        for (JsonNode value : arrayToCalculate) {
+//                            String stringValue = value.asText();
+//
+//                            // Check if the value is "NO SALE" and skip it
+//                            if (!"NO SALE".equals(stringValue)) {
+//                                BigDecimal numericValue = new BigDecimal(stringValue);
+//                                amount = amount.add(numericValue.multiply(rate));
+//                                briefSum = briefSum.add(numericValue);
+//                            }
+//                        }
+//
+//                        Map<String, BigDecimal> rateDetails = new HashMap<>();
+//                        rateDetails.put("Brief", briefSum);
+//                        rateDetails.put("Rate", rate);
+//                        rateDetails.put("Amount", amount);
+//
+//
+//                        // Add the rate details to the list
+//                        bagsumDetailsList.add(rateDetails);
+//
+//
+//                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
+//
+//                    }
+//                }
+//
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//
+//        PageSize a3PageSize = PageSize.A3;
+//
+//        // Calculate 90% of the A3 page dimensions
+//        float scaledWidth = a3PageSize.getWidth() * 0.9f;
+//        float scaledHeight = a3PageSize.getHeight() * 0.9f;
+//
+//
+//        // Define column widths
+//        float[] columnWidths = {1, 2, 2, 4};
+//
+//        // Initialize the serial number
+//        int serialNumber = 1;
+//
+//        // Create a table for the header row
+//        Table headerTable = new Table(columnWidths);
+//        headerTable.setTextAlignment(TextAlignment.LEFT);
+//
+//        // Increase the font size for the header row
+//        headerTable.setFontSize(14);
+//
+//        // Add header cells to the table
+//        headerTable.addCell("SL NO");
+//        headerTable.addCell("Brief");
+//        headerTable.addCell("Rate");
+//        headerTable.addCell("Amount");
+//
+//        // Adjust the cell padding for header cells (both horizontal and vertical)
+//        headerTable.setPadding(5);
+//
+//        document.add(headerTable);
+//
+//        // Iterate through detailsList and add data rows
+////        List<Map<String, BigDecimal>> detailsList = /* Your detailsList */;
+//
+//        for (Map<String, BigDecimal> details : detailsList) {
+//            String brief = details.get("Brief").toString();
+//            String rate = details.get("Rate").toString();
+//            String amount = details.get("Amount").toString();
+//
+//            // Create a table for each data row
+//            Table dataTable = new Table(columnWidths);
+//            dataTable.setTextAlignment(TextAlignment.LEFT);
+//
+//            // Increase the font size for data rows
+//            dataTable.setFontSize(12);
+//
+//            // Add data cells to the table
+//            dataTable.addCell(String.format("%-2d", serialNumber));
+//            dataTable.addCell(brief);
+//            dataTable.addCell(rate);
+//            dataTable.addCell(amount);
+//
+//            // Adjust the cell padding for data cells (both horizontal and vertical)
+//            dataTable.setPadding(5);
+//
+//            // Increase the row height to add 50 spaces between rows
+//            dataTable.setHeight(50);
+//
+//            // Add the data table to the document
+//            document.add(dataTable);
+//
+//            serialNumber++;
+//        }
+//
+//        // Iterate through bagsumDetailsList and add data rows
+////        List<Map<String, BigDecimal>> bagsumDetailsList = /* Your bagsumDetailsList */;
+//
+//        for (Map<String, BigDecimal> bagsumDetails : bagsumDetailsList) {
+//            String brief = bagsumDetails.get("Brief").toString();
+//            String rate = bagsumDetails.get("Rate").toString();
+//            String amount = bagsumDetails.get("Amount").toString();
+//
+//            // Create a table for each data row
+//            Table dataTable = new Table(columnWidths);
+//            dataTable.setTextAlignment(TextAlignment.LEFT);
+//
+//            // Increase the font size for data rows
+//            dataTable.setFontSize(12);
+//
+//            // Add data cells to the table
+//            dataTable.addCell(String.format("%-2d", serialNumber));
+//            dataTable.addCell(brief);
+//            dataTable.addCell(rate);
+//            dataTable.addCell(amount);
+//
+//            // Adjust the cell padding for data cells (both horizontal and vertical)
+//            dataTable.setPadding(5);
+//
+//            // Increase the row height to add 50 spaces between rows
+//            dataTable.setHeight(50);
+//
+//            // Add the data table to the document
+//            document.add(dataTable);
+//
+//            serialNumber++;
+//        }
+//
+//
+//        JsonNode coolieNode = subObjectData.get("Coolie");
+//        JsonNode TOTALNode = subObjectData.get("TOTAL");
+//        JsonNode AmountNode = subObjectData.get("Amount");
+//        JsonNode SCNode = subObjectData.get("S.C");
+//        JsonNode LuggageNode = subObjectData.get("Luggage");
+//        JsonNode EXPNode = subObjectData.get("EXP");
+//
+//
+//        String coolieValue = coolieNode.asText();
+//        String TOTALvalue = TOTALNode.asText();
+//        String amountValue = AmountNode.asText();
+//        String SCValue = SCNode.asText();
+//        String laggageValue = LuggageNode.asText();
+//        String EXPValue = EXPNode.asText();
+//
+//        Paragraph valuesParagraphs = new Paragraph()
+//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+//                .setFontSize(14)
+//                .add(new Text("Coolie - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+//                .add(new Text(coolieValue)).add("\n")
+//                .add(new Text("S.C - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+//                .add(new Text(SCValue)).add("\n")
+//                .add(new Text("Luggage - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+//                .add(new Text(laggageValue)).add("\n")
+//                .add(new Text("EXP - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+//                .add(new Text(EXPValue));
+//
+//        document.add(valuesParagraphs);
+//
+//        Paragraph valuesParagraphs2 = new Paragraph()
+//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+//                .setFontSize(14)
+//                .setMarginLeft(80)
+//                .add(new Text("Amount- ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+//                .add(new Text(amountValue)).add("\n")
+//                .add(new Text("EXP- ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+//                .add(new Text(EXPValue)).add("\n")
+//                .add(new Text("TOTAL - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+//                .add(new Text(TOTALvalue)).add("\n");
+//
+//
+//        document.add(valuesParagraphs2);
+//
+//        document.close();
+//
+//    }
+
+
+
     private void addBody(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
         List<Map<String, BigDecimal>> detailsList = new ArrayList<>();
         List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
-
-
         try {
             // Get the "KGSUM" object
             JsonNode kgsumNode = subObjectData.get("KGSUM");
 
             if (kgsumNode != null && kgsumNode.isObject()) {
-                // Iterate through all keys within the "KGSUM" object
                 for (Iterator<String> it = kgsumNode.fieldNames(); it.hasNext(); ) {
                     String rateKey = it.next();
                     BigDecimal rate = new BigDecimal(rateKey);
                     JsonNode arrayToCalculate = kgsumNode.get(rateKey);
 
                     if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-                        // Iterate through the values in the array
                         for (JsonNode value : arrayToCalculate) {
                             String stringValue = value.asText();
                             BigDecimal numericValue = new BigDecimal(stringValue);
                             BigDecimal amount = numericValue.multiply(rate);
-
-                            // Create a map to store details for the current array
                             Map<String, BigDecimal> arrayDetails = new HashMap<>();
                             arrayDetails.put("Brief", numericValue);
                             arrayDetails.put("Rate", rate);
                             arrayDetails.put("Amount", amount);
-
-                            // Add the details to the list
                             detailsList.add(arrayDetails);
                         }
                     }
@@ -804,26 +1036,18 @@ public class GenerateBillService implements GenerateBillImpl {
             JsonNode bagsumNode = subObjectData.get("BAGSUM");
 
             if (bagsumNode != null && bagsumNode.isObject()) {
-                int numRates = bagsumNode.size(); // Number of rates
-
-                // Initialize arrays to store rate, amount, and brief sum for each rate
-//                BigDecimal[] rates = new BigDecimal[numRates];
-//                BigDecimal[] amounts = new BigDecimal[numRates];
-//                BigDecimal[] briefSums = new BigDecimal[numRates];
-
-                int index = 0; // Index to keep track of the current position in arrays
-
                 // Iterate through all keys within the "BAGSUM" object
                 for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
                     String rateKey = it.next();
                     BigDecimal rate;
-                    String rateString = "Rate: " + rateKey; // Default rate string
+                    String rateString;
 
-                    if (!"NO SALE".equals(rateKey)) {
-                        rate = new BigDecimal(rateKey);
+                    if ("0".equals(rateKey)) {
+                        rate = BigDecimal.ZERO;
+                        rateString = "Rate: NO SALE";
                     } else {
-                        rate = BigDecimal.ZERO; // Set rate to BigDecimal.ZERO for "NO SALE"
-                        rateString = "Rate: NO SALE"; // Hard-coded "Rate: NO SALE" for the output
+                        rate = new BigDecimal(rateKey);
+                        rateString = "Rate: " + rateKey;
                     }
 
                     JsonNode arrayToCalculate = bagsumNode.get(rateKey);
@@ -837,7 +1061,6 @@ public class GenerateBillService implements GenerateBillImpl {
                         for (JsonNode value : arrayToCalculate) {
                             String stringValue = value.asText();
 
-                            // Check if the value is "NO SALE" and skip it
                             if (!"NO SALE".equals(stringValue)) {
                                 BigDecimal numericValue = new BigDecimal(stringValue);
                                 amount = amount.add(numericValue.multiply(rate));
@@ -850,30 +1073,16 @@ public class GenerateBillService implements GenerateBillImpl {
                         rateDetails.put("Rate", rate);
                         rateDetails.put("Amount", amount);
 
-
                         // Add the rate details to the list
                         bagsumDetailsList.add(rateDetails);
 
-
-                        // Store the calculated values in arrays
-//                        rates[index] = rate;
-//                        amounts[index] = amount;
-//                        briefSums[index] = briefSum;
-
-                        // Output the rate string and calculated values
-                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
-
-//                        index++; // Move to the next position in arrays
+//                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
                     }
                 }
-
-                // Now you have arrays containing the calculated values for each rate
-                // You can access these arrays for further processing or printing if needed
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
-
 
         PageSize a3PageSize = PageSize.A3;
 
@@ -908,10 +1117,10 @@ public class GenerateBillService implements GenerateBillImpl {
 
         // Iterate through detailsList and add data rows
 //        List<Map<String, BigDecimal>> detailsList = /* Your detailsList */;
-
+// Iterate through detailsList and add data rows
         for (Map<String, BigDecimal> details : detailsList) {
             String brief = details.get("Brief").toString();
-            String rate = details.get("Rate").toString();
+            BigDecimal rate = details.get("Rate");
             String amount = details.get("Amount").toString();
 
             // Create a table for each data row
@@ -924,7 +1133,14 @@ public class GenerateBillService implements GenerateBillImpl {
             // Add data cells to the table
             dataTable.addCell(String.format("%-2d", serialNumber));
             dataTable.addCell(brief);
-            dataTable.addCell(rate);
+
+            // Check if the rate is zero and replace it with "NO SALE"
+            if (rate.compareTo(BigDecimal.ZERO) == 0) {
+                dataTable.addCell("NO SALE");
+            } else {
+                dataTable.addCell(rate.toString());
+            }
+
             dataTable.addCell(amount);
 
             // Adjust the cell padding for data cells (both horizontal and vertical)
@@ -938,13 +1154,12 @@ public class GenerateBillService implements GenerateBillImpl {
 
             serialNumber++;
         }
-
         // Iterate through bagsumDetailsList and add data rows
 //        List<Map<String, BigDecimal>> bagsumDetailsList = /* Your bagsumDetailsList */;
 
         for (Map<String, BigDecimal> bagsumDetails : bagsumDetailsList) {
             String brief = bagsumDetails.get("Brief").toString();
-            String rate = bagsumDetails.get("Rate").toString();
+            BigDecimal rate = bagsumDetails.get("Rate");
             String amount = bagsumDetails.get("Amount").toString();
 
             // Create a table for each data row
@@ -957,7 +1172,14 @@ public class GenerateBillService implements GenerateBillImpl {
             // Add data cells to the table
             dataTable.addCell(String.format("%-2d", serialNumber));
             dataTable.addCell(brief);
-            dataTable.addCell(rate);
+
+            // Check if the rate is zero and replace it with "NO SALE"
+            if (rate.compareTo(BigDecimal.ZERO) == 0) {
+                dataTable.addCell("NO SALE");
+            } else {
+                dataTable.addCell(rate.toString());
+            }
+
             dataTable.addCell(amount);
 
             // Adjust the cell padding for data cells (both horizontal and vertical)
@@ -971,7 +1193,6 @@ public class GenerateBillService implements GenerateBillImpl {
 
             serialNumber++;
         }
-
 
         JsonNode coolieNode = subObjectData.get("Coolie");
         JsonNode TOTALNode = subObjectData.get("TOTAL");
@@ -1019,6 +1240,7 @@ public class GenerateBillService implements GenerateBillImpl {
         document.close();
 
     }
+
 
 
     private String formatDate(String originalDate) {
