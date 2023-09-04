@@ -5,6 +5,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itextpdf.io.font.FontConstants;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
+import com.itextpdf.kernel.colors.DeviceRgb;
+import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
@@ -12,14 +14,18 @@ import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.element.*;
+import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.property.HorizontalAlignment;
 import com.itextpdf.layout.property.TabAlignment;
+import com.itextpdf.layout.property.TextAlignment;
+import com.itextpdf.layout.property.UnitValue;
 import com.niruSoft.niruSoft.model.SubObjectData;
 import com.niruSoft.niruSoft.service.impl.GenerateBillImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.usermodel.Cell;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -44,7 +50,6 @@ public class GenerateBillService implements GenerateBillImpl {
     private static final int SCALE = 4;
 
     @Override
-
     public JSONObject processExcelData(InputStream inputStream) {
         Map<String, List<Map<String, String>>> resultMap = new HashMap<>();
         Set<String> itemsWithQty = new HashSet<>();
@@ -77,12 +82,11 @@ public class GenerateBillService implements GenerateBillImpl {
                     String item = itemColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemColumnIndex), formulaEvaluator) : "";
 
                     Map<String, String> dataMap = new HashMap<>();
-                    IntStream.range(0, headerRow.getPhysicalNumberOfCells())
-                            .forEach(cellIndex -> {
-                                Cell dataCell = dataRow.getCell(cellIndex);
-                                String cellValue = getCellValueAsString(dataCell, formulaEvaluator);
-                                dataMap.put(headerRow.getCell(cellIndex).getStringCellValue(), cellValue);
-                            });
+                    IntStream.range(0, headerRow.getPhysicalNumberOfCells()).forEach(cellIndex -> {
+                        Cell dataCell = dataRow.getCell(cellIndex);
+                        String cellValue = getCellValueAsString(dataCell, formulaEvaluator);
+                        dataMap.put(headerRow.getCell(cellIndex).getStringCellValue(), cellValue);
+                    });
 
                     if (!itemQty.isEmpty() || !item.isEmpty()) {
                         if (!itemQty.isEmpty() && !item.isEmpty()) {
@@ -435,6 +439,7 @@ public class GenerateBillService implements GenerateBillImpl {
 //
 //        return pdfs;
 //    }
+
     public List<byte[]> generatePdfFromJson(String jsonData) {
         List<byte[]> pdfs = new ArrayList<>();
 
@@ -512,12 +517,8 @@ public class GenerateBillService implements GenerateBillImpl {
 
         document.add(image);
 
-        Paragraph paragraph = new Paragraph()
-                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-                .setFontSize(70)
-                .setMarginTop(30) // Add some top margin for spacing
-                .setWidth(imageWidth)
-                .setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
+        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(70).setMarginTop(30) // Add some top margin for spacing
+                .setWidth(imageWidth).setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
 
         TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
         paragraph.addTabStops(tabStop);
@@ -527,31 +528,20 @@ public class GenerateBillService implements GenerateBillImpl {
             largeSpace.append(" ");
         }
 
-        Paragraph headerParagraph = new Paragraph()
-                .setMarginLeft(40)
-                .add(new Text("M/s: ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(19))
-                .add(new Text("      ")
-                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(18))
-                .add(new Text(subObjectName + largeSpace.toString()) // Add the subObjectName with a large space
-                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(20))
-                .add(new Text("DATE:").setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(18))
-                .add(new Text("    ")
-                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(17))
-                .add(new Text(date)
-                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-                        .setFontSize(18));
+        Paragraph headerParagraph = new Paragraph().setMarginLeft(40).add(new Text("M/s: ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(19)).add(new Text("      ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(18)).add(new Text(subObjectName + largeSpace.toString()) // Add the subObjectName with a large space
+                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(20)).add(new Text("DATE:").setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(18)).add(new Text("    ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(17)).add(new Text(date).setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(18));
 
         System.out.println(dateList);
         String datesOfparticuler = String.join(",   ", dateList);
 
 
         Paragraph headerParagraph2 = new Paragraph()
-                .setMarginRight(17)
-                .add(new Text("Particular: ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(19))
-                .add(new Text("    ")
-                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setFontSize(18))
-                .add(new Text(datesOfparticuler)
-                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(18));
+                .setMarginRight(17).
+                add(new Text("Particular: ")
+                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD))
+                        .setFontSize(19)).add(new Text("    ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).
+                        setFontSize(18)).add(new Text(datesOfparticuler).setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+                        .setFontSize(18));
 
         document.add(paragraph);
         document.add(headerParagraph);
@@ -657,16 +647,158 @@ public class GenerateBillService implements GenerateBillImpl {
 //            e.printStackTrace();
 //        }
 //    }
+
+//
+
+//
+//    private void addBody(Document document, String subObjectName, JsonNode subObjectData) {
+//
+//        List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
+//        try {
+//            // Get the "BAGSUM" object
+//            JsonNode bagsumNode = subObjectData.get("BAGSUM");
+//
+//            if (bagsumNode != null && bagsumNode.isObject()) {
+//                int numRates = bagsumNode.size(); // Number of rates
+//
+//                // Initialize arrays to store rate, amount, and brief sum for each rate
+////                BigDecimal[] rates = new BigDecimal[numRates];
+////                BigDecimal[] amounts = new BigDecimal[numRates];
+////                BigDecimal[] briefSums = new BigDecimal[numRates];
+//
+//                int index = 0; // Index to keep track of the current position in arrays
+//
+//                // Iterate through all keys within the "BAGSUM" object
+//                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
+//                    String rateKey = it.next();
+//                    BigDecimal rate;
+//                    String rateString = "Rate: " + rateKey; // Default rate string
+//
+//                    if (!"NO SALE".equals(rateKey)) {
+//                        rate = new BigDecimal(rateKey);
+//                    } else {
+//                        rate = BigDecimal.ZERO; // Set rate to BigDecimal.ZERO for "NO SALE"
+//                        rateString = "Rate: NO SALE"; // Hard-coded "Rate: NO SALE" for the output
+//                    }
+//
+//                    JsonNode arrayToCalculate = bagsumNode.get(rateKey);
+//
+//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+//                        // Initialize variables to store amount and brief sum for the current rate
+//                        BigDecimal amount = BigDecimal.ZERO;
+//                        BigDecimal briefSum = BigDecimal.ZERO;
+//
+//                        // Iterate through the values in the array and calculate the amount and brief sum
+//                        for (JsonNode value : arrayToCalculate) {
+//                            String stringValue = value.asText();
+//
+//                            // Check if the value is "NO SALE" and skip it
+//                            if (!"NO SALE".equals(stringValue)) {
+//                                BigDecimal numericValue = new BigDecimal(stringValue);
+//                                amount = amount.add(numericValue.multiply(rate));
+//                                briefSum = briefSum.add(numericValue);
+//                            }
+//                        }
+//
+//                        Map<String, BigDecimal> rateDetails = new HashMap<>();
+//                        rateDetails.put("Rate", rate);
+//                        rateDetails.put("Amount", amount);
+//                        rateDetails.put("Brief", briefSum);
+//
+//                        // Add the rate details to the list
+//                        bagsumDetailsList.add(rateDetails);
 //
 //
+//                        // Store the calculated values in arrays
+////                        rates[index] = rate;
+////                        amounts[index] = amount;
+////                        briefSums[index] = briefSum;
+//
+//                        // Output the rate string and calculated values
+//                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
+//
+////                        index++; // Move to the next position in arrays
+//                    }
+//                }
+//
+//                // Now you have arrays containing the calculated values for each rate
+//                // You can access these arrays for further processing or printing if needed
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//
+//    }
+//
+
+    //    private void addBody(Document document, String subObjectName, JsonNode subObjectData) {
+//        try {
+//            // Get the "KGSUM" object
+//            JsonNode kgsumNode = subObjectData.get("KGSUM");
+//
+//            if (kgsumNode != null && kgsumNode.isObject()) {
+//                // Iterate through all keys within the "KGSUM" object
+//                for (Iterator<String> it = kgsumNode.fieldNames(); it.hasNext();) {
+//                    String rateKey = it.next();
+//                    BigDecimal rate = new BigDecimal(rateKey);
+//                    JsonNode arrayToCalculate = kgsumNode.get(rateKey);
+//
+//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+//                        // Iterate through the values in the array
+//                        for (JsonNode value : arrayToCalculate) {
+//                            String stringValue = value.asText();
+//                            BigDecimal numericValue = new BigDecimal(stringValue);
+//                            BigDecimal amount = numericValue.multiply(rate);
+//
+//                            // Output the simplified format for each array
+//                            System.out.println("Brief: " + numericValue + ", Rate: " + rate + ", Amount: " + amount);
+//                        }
+//                    }
+//                }
+//            }
+//        } catch (Exception e) {
+//            e.printStackTrace();
+//        }
+//    }
+    private void addBody(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
+        List<Map<String, BigDecimal>> detailsList = new ArrayList<>();
+        List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
 
 
+        try {
+            // Get the "KGSUM" object
+            JsonNode kgsumNode = subObjectData.get("KGSUM");
 
+            if (kgsumNode != null && kgsumNode.isObject()) {
+                // Iterate through all keys within the "KGSUM" object
+                for (Iterator<String> it = kgsumNode.fieldNames(); it.hasNext(); ) {
+                    String rateKey = it.next();
+                    BigDecimal rate = new BigDecimal(rateKey);
+                    JsonNode arrayToCalculate = kgsumNode.get(rateKey);
 
+                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+                        // Iterate through the values in the array
+                        for (JsonNode value : arrayToCalculate) {
+                            String stringValue = value.asText();
+                            BigDecimal numericValue = new BigDecimal(stringValue);
+                            BigDecimal amount = numericValue.multiply(rate);
 
+                            // Create a map to store details for the current array
+                            Map<String, BigDecimal> arrayDetails = new HashMap<>();
+                            arrayDetails.put("Brief", numericValue);
+                            arrayDetails.put("Rate", rate);
+                            arrayDetails.put("Amount", amount);
 
+                            // Add the details to the list
+                            detailsList.add(arrayDetails);
+                        }
+                    }
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
-    private void addBody(Document document, String subObjectName, JsonNode subObjectData) {
         try {
             // Get the "BAGSUM" object
             JsonNode bagsumNode = subObjectData.get("BAGSUM");
@@ -675,14 +807,14 @@ public class GenerateBillService implements GenerateBillImpl {
                 int numRates = bagsumNode.size(); // Number of rates
 
                 // Initialize arrays to store rate, amount, and brief sum for each rate
-                BigDecimal[] rates = new BigDecimal[numRates];
-                BigDecimal[] amounts = new BigDecimal[numRates];
-                BigDecimal[] briefSums = new BigDecimal[numRates];
+//                BigDecimal[] rates = new BigDecimal[numRates];
+//                BigDecimal[] amounts = new BigDecimal[numRates];
+//                BigDecimal[] briefSums = new BigDecimal[numRates];
 
                 int index = 0; // Index to keep track of the current position in arrays
 
                 // Iterate through all keys within the "BAGSUM" object
-                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext();) {
+                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
                     String rateKey = it.next();
                     BigDecimal rate;
                     String rateString = "Rate: " + rateKey; // Default rate string
@@ -713,15 +845,25 @@ public class GenerateBillService implements GenerateBillImpl {
                             }
                         }
 
+                        Map<String, BigDecimal> rateDetails = new HashMap<>();
+                        rateDetails.put("Brief", briefSum);
+                        rateDetails.put("Rate", rate);
+                        rateDetails.put("Amount", amount);
+
+
+                        // Add the rate details to the list
+                        bagsumDetailsList.add(rateDetails);
+
+
                         // Store the calculated values in arrays
-                        rates[index] = rate;
-                        amounts[index] = amount;
-                        briefSums[index] = briefSum;
+//                        rates[index] = rate;
+//                        amounts[index] = amount;
+//                        briefSums[index] = briefSum;
 
                         // Output the rate string and calculated values
-                        System.out.println(rateString + ", Brief: " + briefSums[index] + ", Amount: " + amounts[index]);
+                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
 
-                        index++; // Move to the next position in arrays
+//                        index++; // Move to the next position in arrays
                     }
                 }
 
@@ -731,6 +873,151 @@ public class GenerateBillService implements GenerateBillImpl {
         } catch (Exception e) {
             e.printStackTrace();
         }
+
+
+        PageSize a3PageSize = PageSize.A3;
+
+        // Calculate 90% of the A3 page dimensions
+        float scaledWidth = a3PageSize.getWidth() * 0.9f;
+        float scaledHeight = a3PageSize.getHeight() * 0.9f;
+
+
+        // Define column widths
+        float[] columnWidths = {1, 2, 2, 4};
+
+        // Initialize the serial number
+        int serialNumber = 1;
+
+        // Create a table for the header row
+        Table headerTable = new Table(columnWidths);
+        headerTable.setTextAlignment(TextAlignment.LEFT);
+
+        // Increase the font size for the header row
+        headerTable.setFontSize(14);
+
+        // Add header cells to the table
+        headerTable.addCell("SL NO");
+        headerTable.addCell("Brief");
+        headerTable.addCell("Rate");
+        headerTable.addCell("Amount");
+
+        // Adjust the cell padding for header cells (both horizontal and vertical)
+        headerTable.setPadding(5);
+
+        document.add(headerTable);
+
+        // Iterate through detailsList and add data rows
+//        List<Map<String, BigDecimal>> detailsList = /* Your detailsList */;
+
+        for (Map<String, BigDecimal> details : detailsList) {
+            String brief = details.get("Brief").toString();
+            String rate = details.get("Rate").toString();
+            String amount = details.get("Amount").toString();
+
+            // Create a table for each data row
+            Table dataTable = new Table(columnWidths);
+            dataTable.setTextAlignment(TextAlignment.LEFT);
+
+            // Increase the font size for data rows
+            dataTable.setFontSize(12);
+
+            // Add data cells to the table
+            dataTable.addCell(String.format("%-2d", serialNumber));
+            dataTable.addCell(brief);
+            dataTable.addCell(rate);
+            dataTable.addCell(amount);
+
+            // Adjust the cell padding for data cells (both horizontal and vertical)
+            dataTable.setPadding(5);
+
+            // Increase the row height to add 50 spaces between rows
+            dataTable.setHeight(50);
+
+            // Add the data table to the document
+            document.add(dataTable);
+
+            serialNumber++;
+        }
+
+        // Iterate through bagsumDetailsList and add data rows
+//        List<Map<String, BigDecimal>> bagsumDetailsList = /* Your bagsumDetailsList */;
+
+        for (Map<String, BigDecimal> bagsumDetails : bagsumDetailsList) {
+            String brief = bagsumDetails.get("Brief").toString();
+            String rate = bagsumDetails.get("Rate").toString();
+            String amount = bagsumDetails.get("Amount").toString();
+
+            // Create a table for each data row
+            Table dataTable = new Table(columnWidths);
+            dataTable.setTextAlignment(TextAlignment.LEFT);
+
+            // Increase the font size for data rows
+            dataTable.setFontSize(12);
+
+            // Add data cells to the table
+            dataTable.addCell(String.format("%-2d", serialNumber));
+            dataTable.addCell(brief);
+            dataTable.addCell(rate);
+            dataTable.addCell(amount);
+
+            // Adjust the cell padding for data cells (both horizontal and vertical)
+            dataTable.setPadding(5);
+
+            // Increase the row height to add 50 spaces between rows
+            dataTable.setHeight(50);
+
+            // Add the data table to the document
+            document.add(dataTable);
+
+            serialNumber++;
+        }
+
+
+        JsonNode coolieNode = subObjectData.get("Coolie");
+        JsonNode TOTALNode = subObjectData.get("TOTAL");
+        JsonNode AmountNode = subObjectData.get("Amount");
+        JsonNode SCNode = subObjectData.get("S.C");
+        JsonNode LuggageNode = subObjectData.get("Luggage");
+        JsonNode EXPNode = subObjectData.get("EXP");
+
+
+        String coolieValue = coolieNode.asText();
+        String TOTALvalue = TOTALNode.asText();
+        String amountValue = AmountNode.asText();
+        String SCValue = SCNode.asText();
+        String laggageValue = LuggageNode.asText();
+        String EXPValue = EXPNode.asText();
+
+        Paragraph valuesParagraphs = new Paragraph()
+                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+                .setFontSize(14)
+                .add(new Text("Coolie - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+                .add(new Text(coolieValue)).add("\n")
+                .add(new Text("S.C - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+                .add(new Text(SCValue)).add("\n")
+                .add(new Text("Luggage - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+                .add(new Text(laggageValue)).add("\n")
+                .add(new Text("EXP - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+                .add(new Text(EXPValue));
+
+        document.add(valuesParagraphs);
+
+        Paragraph valuesParagraphs2 = new Paragraph()
+                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
+                .setFontSize(14)
+                .setMarginLeft(80)
+                .add(new Text("Amount- ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+                .add(new Text(amountValue)).add("\n")
+                .add(new Text("EXP- ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+                .add(new Text(EXPValue)).add("\n")
+                .add(new Text("TOTAL - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
+                .add(new Text(TOTALvalue)).add("\n");
+
+
+        document.add(valuesParagraphs2);
+
+        document.close();
+
     }
 
 
