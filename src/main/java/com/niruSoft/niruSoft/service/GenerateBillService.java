@@ -24,6 +24,7 @@ import com.niruSoft.niruSoft.service.impl.GenerateBillImpl;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.xwpf.usermodel.BreakType;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -37,6 +38,7 @@ import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.List;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
 import org.json.JSONArray;
@@ -70,41 +72,49 @@ public class GenerateBillService implements GenerateBillImpl {
             int farmerNameColumnIndex = columnIndexes.getOrDefault("FARMERNAME", -1);
             int itemQtyColumnIndex = columnIndexes.getOrDefault("ITEMQTY", -1);
             int itemColumnIndex = columnIndexes.getOrDefault("ITEM", -1);
+            int unitColumnIndex = columnIndexes.getOrDefault("UNIT", -1);
+            int rateColumnIndex = columnIndexes.getOrDefault("Rate", -1);
 
             // Loop through the rows and extract data for all farmer names
             for (int rowIndex = 1; rowIndex < sheet.getPhysicalNumberOfRows(); rowIndex++) {
                 Row dataRow = sheet.getRow(rowIndex);
-                Cell farmerNameCell = dataRow.getCell(farmerNameColumnIndex);
 
-                if (farmerNameCell != null) {
-                    String farmerName = getCellValueAsString(farmerNameCell, formulaEvaluator);
-                    String itemQty = itemQtyColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemQtyColumnIndex), formulaEvaluator) : "";
-                    String item = itemColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemColumnIndex), formulaEvaluator) : "";
+                // Add null check for dataRow
+                if (dataRow != null) {
+                    Cell farmerNameCell = dataRow.getCell(farmerNameColumnIndex);
 
-                    Map<String, String> dataMap = new HashMap<>();
-                    IntStream.range(0, headerRow.getPhysicalNumberOfCells()).forEach(cellIndex -> {
-                        Cell dataCell = dataRow.getCell(cellIndex);
-                        String cellValue = getCellValueAsString(dataCell, formulaEvaluator);
-                        dataMap.put(headerRow.getCell(cellIndex).getStringCellValue(), cellValue);
-                    });
+                    if (farmerNameCell != null) {
+                        String farmerName = getCellValueAsString(farmerNameCell, formulaEvaluator);
+                        String itemQty = itemQtyColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemQtyColumnIndex), formulaEvaluator) : "";
+                        String item = itemColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(itemColumnIndex), formulaEvaluator) : "";
+                        String unit = unitColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(unitColumnIndex), formulaEvaluator) : "";
+                        String rate = rateColumnIndex != -1 ? getCellValueAsString(dataRow.getCell(rateColumnIndex), formulaEvaluator) : "";
 
-                    if (!itemQty.isEmpty() || !item.isEmpty()) {
-                        if (!itemQty.isEmpty() && !item.isEmpty()) {
-                            // Concatenate "Item qty" and "ITEM" with a space
-                            dataMap.put("ITEM", itemQty + " " + item);
-                        } else if (itemQty.isEmpty()) {
-                            // If "Item qty" is empty, combine values under "ITEM"
-                            itemsWithQty.add(item);
+                        Map<String, String> dataMap = new HashMap<>();
+                        IntStream.range(0, headerRow.getPhysicalNumberOfCells()).forEach(cellIndex -> {
+                            Cell dataCell = dataRow.getCell(cellIndex);
+                            String cellValue = getCellValueAsString(dataCell, formulaEvaluator);
+                            dataMap.put(headerRow.getCell(cellIndex).getStringCellValue(), cellValue);
+                        });
+
+                        if (!itemQty.isEmpty() || !item.isEmpty()) {
+                            if (!itemQty.isEmpty() && !item.isEmpty()) {
+                                // Concatenate "Item qty" and "ITEM" with a space
+                                dataMap.put("ITEM", itemQty + " " + item);
+                            } else if (itemQty.isEmpty()) {
+                                // If "Item qty" is empty, combine values under "ITEM"
+                                itemsWithQty.add(item);
+                            }
                         }
-                    }
 
-                    if (itemQty.isEmpty() && seenItems.contains(item)) {
-                        dataMap.put("ITEM", ""); // Set "ITEM" to empty
-                    } else {
-                        seenItems.add(item);
-                    }
+                        if (itemQty.isEmpty() && seenItems.contains(item)) {
+                            dataMap.put("ITEM", ""); // Set "ITEM" to empty
+                        } else {
+                            seenItems.add(item);
+                        }
 
-                    resultMap.computeIfAbsent(farmerName, k -> new ArrayList<>()).add(dataMap);
+                        resultMap.computeIfAbsent(farmerName, k -> new ArrayList<>()).add(dataMap);
+                    }
                 }
             }
         } catch (Exception e) {
@@ -114,43 +124,69 @@ public class GenerateBillService implements GenerateBillImpl {
         // Convert the original resultMap to a JSONObject
         JSONObject originalJson = new JSONObject(resultMap);
 
-        // Use the modifyJsonStructure function to restructure the JSON
+        // Modify the JSON structure to include KGSUM and BAGSUM
         JSONObject modifiedJson = modifyJsonStructure(originalJson);
-        JSONObject modifyJsonWithSum = modifyJsonStructureWithSum(originalJson);
-        // Merge the two JSON objects
-        for (String farmerName : modifyJsonWithSum.keySet()) {
-            if (modifiedJson.has(farmerName)) {
-                JSONObject farmerData = modifiedJson.getJSONObject(farmerName);
-                JSONObject farmerDataWithSum = modifyJsonWithSum.getJSONObject(farmerName);
 
-                // Merge "BAGSUM" and "KGSUM" into the existing farmerData
-                farmerData.put("BAGSUM", farmerDataWithSum.get("BAGSUM"));
-                farmerData.put("KGSUM", farmerDataWithSum.get("KGSUM"));
-                farmerData.put("S.C", farmerDataWithSum.get("S.C"));
-                farmerData.put("Luggage", farmerDataWithSum.get("Luggage"));
-                farmerData.put("Coolie", farmerDataWithSum.get("Coolie"));
-                farmerData.put("Amount", farmerDataWithSum.get("Amount"));
-                farmerData.put("EXP", farmerDataWithSum.get("EXP"));
-                farmerData.put("TOTAL", farmerDataWithSum.get("TOTAL"));//TOTAL
-
-            }
-        }
-
-        // Remove empty strings from the "ITEM" arrays
-        for (String farmerName : modifiedJson.keySet()) {
-            JSONArray itemArray = modifiedJson.getJSONObject(farmerName).getJSONArray("ITEM");
-            JSONArray filteredItemArray = new JSONArray();
-            for (int i = 0; i < itemArray.length(); i++) {
-                String itemValue = itemArray.getString(i);
-                if (!itemValue.isEmpty()) {
-                    filteredItemArray.put(itemValue);
-                }
-            }
-            modifiedJson.getJSONObject(farmerName).put("ITEM", filteredItemArray);
-        }
-
+        System.out.println(modifiedJson);
         return modifiedJson; // Return the modified JSON
     }
+
+    private JSONObject modifyJsonStructure(JSONObject originalJson) {
+        JSONObject modifiedJson = new JSONObject();
+
+        for (String farmerName : originalJson.keySet()) {
+            JSONArray farmerDataArray = originalJson.getJSONArray(farmerName);
+            JSONObject farmerDataObject = new JSONObject();
+
+            // Initialize KGSUM and BAGSUM structures
+            JSONObject kgSum = new JSONObject();
+            JSONObject bagSum = new JSONObject();
+
+            for (int i = 0; i < farmerDataArray.length(); i++) {
+                JSONObject rowData = farmerDataArray.getJSONObject(i);
+
+                String unit = rowData.optString("UNIT", "");
+                String rate = rowData.optString("Rate", "");
+                String qty = rowData.optString("QTY", "");
+
+                // Check if the unit is KG's or BAG's
+                if ("KG'S".equalsIgnoreCase(unit)) {
+                    // Check if rate exists in KGSUM
+                    if (!rate.isEmpty()) {
+                        if (!kgSum.has(rate)) {
+                            kgSum.put(rate, new JSONArray());
+                        }
+                        kgSum.getJSONArray(rate).put(qty);
+                    }
+                } else if ("BAG'S".equalsIgnoreCase(unit)) {
+                    // Check if rate exists in BAGSUM
+                    if (!rate.isEmpty()) {
+                        if (!bagSum.has(rate)) {
+                            bagSum.put(rate, new JSONArray());
+                        }
+                        bagSum.getJSONArray(rate).put(qty);
+                    }
+                }
+
+                for (String header : rowData.keySet()) {
+                    if (!farmerDataObject.has(header)) {
+                        farmerDataObject.put(header, new JSONArray());
+                    }
+                    JSONArray headerArray = farmerDataObject.getJSONArray(header);
+                    headerArray.put(rowData.getString(header));
+                }
+            }
+
+            // Add KGSUM and BAGSUM to farmerDataObject
+            farmerDataObject.put("KGSUM", kgSum);
+            farmerDataObject.put("BAGSUM", bagSum);
+
+            modifiedJson.put(farmerName, farmerDataObject);
+        }
+
+        return modifiedJson;
+    }
+
 
     private Map<String, Integer> findColumnIndexes(Row headerRow) {
         Map<String, Integer> columnIndexes = new HashMap<>();
@@ -195,155 +231,6 @@ public class GenerateBillService implements GenerateBillImpl {
         }
         return "";
     }
-
-    private JSONObject modifyJsonStructure(JSONObject originalJson) {
-        JSONObject modifiedJson = new JSONObject();
-
-        for (String farmerName : originalJson.keySet()) {
-            JSONArray farmerDataArray = originalJson.getJSONArray(farmerName);
-            JSONObject farmerDataObject = new JSONObject();
-
-            for (int i = 0; i < farmerDataArray.length(); i++) {
-                JSONObject rowData = farmerDataArray.getJSONObject(i);
-
-                for (String header : rowData.keySet()) {
-                    if (!farmerDataObject.has(header)) {
-                        farmerDataObject.put(header, new JSONArray());
-                    }
-                    JSONArray headerArray = farmerDataObject.getJSONArray(header);
-                    headerArray.put(rowData.getString(header));
-                }
-            }
-
-            modifiedJson.put(farmerName, farmerDataObject);
-        }
-
-        return modifiedJson;
-    }
-
-    private JSONObject modifyJsonStructureWithSum(JSONObject originalJson) {
-        JSONObject modifiedJson = new JSONObject();
-
-        for (String farmerName : originalJson.keySet()) {
-            JSONArray farmerDataArray = originalJson.getJSONArray(farmerName);
-            JSONObject farmerDataObject = new JSONObject();
-
-            // Initialize BagSum, KgSum, and other sums
-            JSONObject bagSum = new JSONObject();
-            JSONObject kgSum = new JSONObject();
-            BigDecimal scTotal = BigDecimal.ZERO;
-            BigDecimal coolieTotal = BigDecimal.ZERO;
-            BigDecimal luggageTotal = BigDecimal.ZERO;
-            BigDecimal amountTotal = BigDecimal.ZERO; // Initialize Amount total
-
-            for (int i = 0; i < farmerDataArray.length(); i++) {
-                JSONObject rowData = farmerDataArray.getJSONObject(i);
-
-                // Extract relevant data
-                String rate = rowData.getString("Rate");
-                String qty = rowData.getString("QTY");
-                String sc = rowData.getString("S.C");
-                String coolie = rowData.getString("Coolie");
-                String luggage = rowData.getString("Luggage");
-                String amount = rowData.getString("Amount"); // Amount value
-
-                if (!rate.isEmpty() && !qty.isEmpty()) {
-                    double rateValue = Double.parseDouble(rate);
-                    double qtyValue = Double.parseDouble(qty);
-
-                    if (rateValue == 0.0) {
-                        // Append "NO SALE" to BAGSUM when rate is 0
-                        if (!bagSum.has(rate)) {
-                            bagSum.put(rate, new JSONArray());
-                        }
-                        bagSum.getJSONArray(rate).put("NO SALE");
-                    } else {
-                        // Determine whether to use BagSum or KgSum based on Rate
-                        String sumKey = rateValue >= 100.0 ? "BAGSUM" : "KGSUM";
-                        // Add the quantity to the appropriate sum
-                        JSONObject sumObject = sumKey.equals("BAGSUM") ? bagSum : kgSum;
-                        if (!sumObject.has(rate)) {
-                            sumObject.put(rate, new JSONArray());
-                        }
-                        sumObject.getJSONArray(rate).put(String.valueOf(qtyValue));
-
-                    }
-                }
-
-                // Add S.C value to the total as BigDecimal
-                if (!sc.isEmpty()) {
-                    BigDecimal scValue = new BigDecimal(sc);
-                    scTotal = scTotal.add(scValue);
-                }
-
-                // Add Coolie value to the total as BigDecimal
-                if (!coolie.isEmpty()) {
-                    BigDecimal coolieValue = new BigDecimal(coolie);
-                    coolieTotal = coolieTotal.add(coolieValue);
-                }
-
-                // Add Luggage value to the total as BigDecimal
-                if (!luggage.isEmpty()) {
-                    BigDecimal luggageValue = new BigDecimal(luggage);
-                    luggageTotal = luggageTotal.add(luggageValue);
-                }
-
-                // Add Amount value to the total as BigDecimal
-                if (!amount.isEmpty()) {
-                    BigDecimal amountValue = new BigDecimal(amount);
-                    amountTotal = amountTotal.add(amountValue);
-                }
-
-                // Add other data to the farmerDataObject
-                for (String header : rowData.keySet()) {
-                    if (!header.equals("QTY")) {
-                        if (!farmerDataObject.has(header)) {
-                            farmerDataObject.put(header, new JSONArray());
-                        }
-                        JSONArray headerArray = farmerDataObject.getJSONArray(header);
-                        headerArray.put(rowData.getString(header));
-                    }
-                }
-            }
-
-            // Add BagSum and KgSum to the farmerDataObject
-            farmerDataObject.put("BAGSUM", bagSum);
-            farmerDataObject.put("KGSUM", kgSum);
-
-            // Add S.CTOTAL to the farmerDataObject as a rounded integer
-            int scTotalRounded = scTotal.setScale(0, RoundingMode.HALF_UP).intValue();
-            farmerDataObject.put("S.C", String.valueOf(scTotalRounded));
-
-            // Add CoolieTOTAL to the farmerDataObject as a rounded integer
-            int coolieTotalRounded = coolieTotal.setScale(0, RoundingMode.HALF_UP).intValue();
-            farmerDataObject.put("Coolie", String.valueOf(coolieTotalRounded));
-
-            // Add LuggageTOTAL to the farmerDataObject as a rounded integer
-            int luggageTotalRounded = luggageTotal.setScale(0, RoundingMode.HALF_UP).intValue();
-            farmerDataObject.put("Luggage", String.valueOf(luggageTotalRounded));
-
-            // Add AmountTOTAL to the farmerDataObject as a rounded integer
-            int amountTotalRounded = amountTotal.setScale(0, RoundingMode.HALF_UP).intValue();
-            farmerDataObject.put("Amount", String.valueOf(amountTotalRounded));
-
-            // Calculate EXP sum as the sum of S.CTOTAL, CoolieTOTAL, and LuggageTOTAL
-            BigDecimal expValue = scTotal.add(coolieTotal).add(luggageTotal);
-            int expSumRounded = expValue.setScale(0, RoundingMode.HALF_UP).intValue();
-
-            // Add EXP to the farmerDataObject
-            farmerDataObject.put("EXP", String.valueOf(expSumRounded));
-
-            BigDecimal TotalValue = amountTotal.subtract(expValue);
-            int totalValueExp = TotalValue.setScale(0, RoundingMode.HALF_UP).intValue();
-            farmerDataObject.put("TOTAL", String.valueOf(totalValueExp));
-
-            // Add the modified farmerDataObject to the modifiedJson
-            modifiedJson.put(farmerName, farmerDataObject);
-        }
-
-        return modifiedJson;
-    }
-
 
     ///////////////////////////////////////////////////////////////////////////////////////////////////
 //    public List<byte[]> generatePdfFromJson(String jsonData) {
@@ -440,13 +327,14 @@ public class GenerateBillService implements GenerateBillImpl {
 //        return pdfs;
 //    }
 
+
     public List<byte[]> generatePdfFromJson(String jsonData) {
         List<byte[]> pdfs = new ArrayList<>();
 
         try {
             ObjectMapper objectMapper = new ObjectMapper();
             JsonNode jsonNode = objectMapper.readTree(jsonData);
-            System.out.println(jsonNode);
+//            System.out.println(jsonNode);
 
             if (jsonNode.isObject()) {
                 // Iterate over each sub-object
@@ -548,506 +436,31 @@ public class GenerateBillService implements GenerateBillImpl {
         document.add(headerParagraph2);
     }
 
-//    private void  addBody(Document document, String subObjectName, JsonNode subObjectData){
-//
-//        try {
-//            // Get the "BAGSUM" object
-//            JsonNode bagsumNode = subObjectData.get("BAGSUM");
-//
-//            if (bagsumNode != null && bagsumNode.isObject()) {
-//                // Initialize variables to store sum, rate, and amount
-//                double sum = 0.0;
-//                double rate = 0.0;
-//
-//                // Iterate through all keys within the "BAGSUM" object
-//                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext();) {
-//                    String key = it.next();
-//                    JsonNode arrayToCalculate = bagsumNode.get(key);
-//
-//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-//                        // Iterate through the values in the array and calculate the sum
-//                        for (JsonNode value : arrayToCalculate) {
-//                            String stringValue = value.asText();
-//                            double numericValue = Double.parseDouble(stringValue);
-//                            sum += numericValue;
-//                        }
-//                    }
-//                }
-//
-//                // Get the "Rate" and "Amount" from the subObjectData
-//                JsonNode rateNode = subObjectData.get("Rate");
-//                JsonNode amountNode = subObjectData.get("Amount");
-//
-//                if (rateNode != null && rateNode.isArray() && rateNode.size() > 0) {
-//                    rate = Double.parseDouble(rateNode.get(0).asText());
-//                }
-//
-//                if (amountNode != null && !amountNode.isMissingNode()) {
-//                    double amount = Double.parseDouble(amountNode.asText());
-//
-//                    // Print the desired output
-//                    System.out.println("Brief: " + sum + " Rate: " + rate + " Amount: " + (sum * rate));
-//                }
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
-
-//    private void addBody(Document document, String subObjectName, JsonNode subObjectData) {
-//        try {
-//            // Get the "BAGSUM" object
-//            JsonNode bagsumNode = subObjectData.get("BAGSUM");
-//
-//            if (bagsumNode != null && bagsumNode.isObject()) {
-//                int numRates = bagsumNode.size(); // Number of rates
-//
-//                // Initialize arrays to store rate, amount, and brief sum for each rate
-//                double[] rates = new double[numRates];
-//                double[] amounts = new double[numRates];
-//                double[] briefSums = new double[numRates];
-//
-//                int index = 0; // Index to keep track of the current position in arrays
-//
-//                // Iterate through all keys within the "BAGSUM" object
-//                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext();) {
-//                    String rateKey = it.next();
-//                    double rate = Double.parseDouble(rateKey);
-//                    JsonNode arrayToCalculate = bagsumNode.get(rateKey);
-//
-//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-//                        // Initialize variables to store amount and brief sum for the current rate
-//                        double amount = 0.0;
-//                        double briefSum = 0.0;
-//
-//                        // Iterate through the values in the array and calculate the amount and brief sum
-//                        for (JsonNode value : arrayToCalculate) {
-//                            String stringValue = value.asText();
-//                            double numericValue = Double.parseDouble(stringValue);
-//                            amount += numericValue * rate;
-//                            briefSum += numericValue;
-//                        }
-//
-//                        // Store the calculated values in arrays
-//                        rates[index] = rate;
-//                        amounts[index] = amount;
-//                        briefSums[index] = briefSum;
-//
-//                        index++; // Move to the next position in arrays
-//                    }
-//                }
-//
-//                // Now you have arrays containing the calculated values for each rate
-//                // You can access these arrays for further processing or printing if needed
-//                for (int i = 0; i < numRates; i++) {
-//                    System.out.println("Rate: " + rates[i] + ", Brief: " + briefSums[i] + ", Amount: " + amounts[i]);
-//                }
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
-
-//
-
-//
-//    private void addBody(Document document, String subObjectName, JsonNode subObjectData) {
-//
-//        List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
-//        try {
-//            // Get the "BAGSUM" object
-//            JsonNode bagsumNode = subObjectData.get("BAGSUM");
-//
-//            if (bagsumNode != null && bagsumNode.isObject()) {
-//                int numRates = bagsumNode.size(); // Number of rates
-//
-//                // Initialize arrays to store rate, amount, and brief sum for each rate
-////                BigDecimal[] rates = new BigDecimal[numRates];
-////                BigDecimal[] amounts = new BigDecimal[numRates];
-////                BigDecimal[] briefSums = new BigDecimal[numRates];
-//
-//                int index = 0; // Index to keep track of the current position in arrays
-//
-//                // Iterate through all keys within the "BAGSUM" object
-//                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
-//                    String rateKey = it.next();
-//                    BigDecimal rate;
-//                    String rateString = "Rate: " + rateKey; // Default rate string
-//
-//                    if (!"NO SALE".equals(rateKey)) {
-//                        rate = new BigDecimal(rateKey);
-//                    } else {
-//                        rate = BigDecimal.ZERO; // Set rate to BigDecimal.ZERO for "NO SALE"
-//                        rateString = "Rate: NO SALE"; // Hard-coded "Rate: NO SALE" for the output
-//                    }
-//
-//                    JsonNode arrayToCalculate = bagsumNode.get(rateKey);
-//
-//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-//                        // Initialize variables to store amount and brief sum for the current rate
-//                        BigDecimal amount = BigDecimal.ZERO;
-//                        BigDecimal briefSum = BigDecimal.ZERO;
-//
-//                        // Iterate through the values in the array and calculate the amount and brief sum
-//                        for (JsonNode value : arrayToCalculate) {
-//                            String stringValue = value.asText();
-//
-//                            // Check if the value is "NO SALE" and skip it
-//                            if (!"NO SALE".equals(stringValue)) {
-//                                BigDecimal numericValue = new BigDecimal(stringValue);
-//                                amount = amount.add(numericValue.multiply(rate));
-//                                briefSum = briefSum.add(numericValue);
-//                            }
-//                        }
-//
-//                        Map<String, BigDecimal> rateDetails = new HashMap<>();
-//                        rateDetails.put("Rate", rate);
-//                        rateDetails.put("Amount", amount);
-//                        rateDetails.put("Brief", briefSum);
-//
-//                        // Add the rate details to the list
-//                        bagsumDetailsList.add(rateDetails);
-//
-//
-//                        // Store the calculated values in arrays
-////                        rates[index] = rate;
-////                        amounts[index] = amount;
-////                        briefSums[index] = briefSum;
-//
-//                        // Output the rate string and calculated values
-//                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
-//
-////                        index++; // Move to the next position in arrays
-//                    }
-//                }
-//
-//                // Now you have arrays containing the calculated values for each rate
-//                // You can access these arrays for further processing or printing if needed
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//
-//    }
-//
-
-    //    private void addBody(Document document, String subObjectName, JsonNode subObjectData) {
-//        try {
-//            // Get the "KGSUM" object
-//            JsonNode kgsumNode = subObjectData.get("KGSUM");
-//
-//            if (kgsumNode != null && kgsumNode.isObject()) {
-//                // Iterate through all keys within the "KGSUM" object
-//                for (Iterator<String> it = kgsumNode.fieldNames(); it.hasNext();) {
-//                    String rateKey = it.next();
-//                    BigDecimal rate = new BigDecimal(rateKey);
-//                    JsonNode arrayToCalculate = kgsumNode.get(rateKey);
-//
-//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-//                        // Iterate through the values in the array
-//                        for (JsonNode value : arrayToCalculate) {
-//                            String stringValue = value.asText();
-//                            BigDecimal numericValue = new BigDecimal(stringValue);
-//                            BigDecimal amount = numericValue.multiply(rate);
-//
-//                            // Output the simplified format for each array
-//                            System.out.println("Brief: " + numericValue + ", Rate: " + rate + ", Amount: " + amount);
-//                        }
-//                    }
-//                }
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//    }
-//    private void addBody(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
-//        List<Map<String, BigDecimal>> detailsList = new ArrayList<>();
-//        List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
-//        try {
-//            // Get the "KGSUM" object
-//            JsonNode kgsumNode = subObjectData.get("KGSUM");
-//
-//            if (kgsumNode != null && kgsumNode.isObject()) {
-//                for (Iterator<String> it = kgsumNode.fieldNames(); it.hasNext(); ) {
-//                    String rateKey = it.next();
-//                    BigDecimal rate = new BigDecimal(rateKey);
-//                    JsonNode arrayToCalculate = kgsumNode.get(rateKey);
-//
-//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-//                        for (JsonNode value : arrayToCalculate) {
-//                            String stringValue = value.asText();
-//                            BigDecimal numericValue = new BigDecimal(stringValue);
-//                            BigDecimal amount = numericValue.multiply(rate);
-//                            Map<String, BigDecimal> arrayDetails = new HashMap<>();
-//                            arrayDetails.put("Brief", numericValue);
-//                            arrayDetails.put("Rate", rate);
-//                            arrayDetails.put("Amount", amount);
-//                            detailsList.add(arrayDetails);
-//                        }
-//                    }
-//                }
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//
-//        try {
-//            // Get the "BAGSUM" object
-//            JsonNode bagsumNode = subObjectData.get("BAGSUM");
-//
-//            if (bagsumNode != null && bagsumNode.isObject()) {
-//                int numRates = bagsumNode.size(); // Number of rates
-//
-//                int index = 0; // Index to keep track of the current position in arrays
-//
-//                // Iterate through all keys within the "BAGSUM" object
-//                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
-//                    String rateKey = it.next();
-//                    BigDecimal rate;
-//                    String rateString = "Rate: " + rateKey; // Default rate string
-//
-//                    if (!"NO SALE".equals(rateKey)) {
-//                        rate = new BigDecimal(rateKey);
-//                    } else {
-//                        rate = BigDecimal.ZERO; // Set rate to BigDecimal.ZERO for "NO SALE"
-//                        rateString = "Rate: NO SALE"; // Hard-coded "Rate: NO SALE" for the output
-//                    }
-//
-//                    JsonNode arrayToCalculate = bagsumNode.get(rateKey);
-//
-//                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-//                        // Initialize variables to store amount and brief sum for the current rate
-//                        BigDecimal amount = BigDecimal.ZERO;
-//                        BigDecimal briefSum = BigDecimal.ZERO;
-//
-//                        // Iterate through the values in the array and calculate the amount and brief sum
-//                        for (JsonNode value : arrayToCalculate) {
-//                            String stringValue = value.asText();
-//
-//                            // Check if the value is "NO SALE" and skip it
-//                            if (!"NO SALE".equals(stringValue)) {
-//                                BigDecimal numericValue = new BigDecimal(stringValue);
-//                                amount = amount.add(numericValue.multiply(rate));
-//                                briefSum = briefSum.add(numericValue);
-//                            }
-//                        }
-//
-//                        Map<String, BigDecimal> rateDetails = new HashMap<>();
-//                        rateDetails.put("Brief", briefSum);
-//                        rateDetails.put("Rate", rate);
-//                        rateDetails.put("Amount", amount);
-//
-//
-//                        // Add the rate details to the list
-//                        bagsumDetailsList.add(rateDetails);
-//
-//
-//                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
-//
-//                    }
-//                }
-//
-//            }
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//        }
-//
-//
-//        PageSize a3PageSize = PageSize.A3;
-//
-//        // Calculate 90% of the A3 page dimensions
-//        float scaledWidth = a3PageSize.getWidth() * 0.9f;
-//        float scaledHeight = a3PageSize.getHeight() * 0.9f;
-//
-//
-//        // Define column widths
-//        float[] columnWidths = {1, 2, 2, 4};
-//
-//        // Initialize the serial number
-//        int serialNumber = 1;
-//
-//        // Create a table for the header row
-//        Table headerTable = new Table(columnWidths);
-//        headerTable.setTextAlignment(TextAlignment.LEFT);
-//
-//        // Increase the font size for the header row
-//        headerTable.setFontSize(14);
-//
-//        // Add header cells to the table
-//        headerTable.addCell("SL NO");
-//        headerTable.addCell("Brief");
-//        headerTable.addCell("Rate");
-//        headerTable.addCell("Amount");
-//
-//        // Adjust the cell padding for header cells (both horizontal and vertical)
-//        headerTable.setPadding(5);
-//
-//        document.add(headerTable);
-//
-//        // Iterate through detailsList and add data rows
-////        List<Map<String, BigDecimal>> detailsList = /* Your detailsList */;
-//
-//        for (Map<String, BigDecimal> details : detailsList) {
-//            String brief = details.get("Brief").toString();
-//            String rate = details.get("Rate").toString();
-//            String amount = details.get("Amount").toString();
-//
-//            // Create a table for each data row
-//            Table dataTable = new Table(columnWidths);
-//            dataTable.setTextAlignment(TextAlignment.LEFT);
-//
-//            // Increase the font size for data rows
-//            dataTable.setFontSize(12);
-//
-//            // Add data cells to the table
-//            dataTable.addCell(String.format("%-2d", serialNumber));
-//            dataTable.addCell(brief);
-//            dataTable.addCell(rate);
-//            dataTable.addCell(amount);
-//
-//            // Adjust the cell padding for data cells (both horizontal and vertical)
-//            dataTable.setPadding(5);
-//
-//            // Increase the row height to add 50 spaces between rows
-//            dataTable.setHeight(50);
-//
-//            // Add the data table to the document
-//            document.add(dataTable);
-//
-//            serialNumber++;
-//        }
-//
-//        // Iterate through bagsumDetailsList and add data rows
-////        List<Map<String, BigDecimal>> bagsumDetailsList = /* Your bagsumDetailsList */;
-//
-//        for (Map<String, BigDecimal> bagsumDetails : bagsumDetailsList) {
-//            String brief = bagsumDetails.get("Brief").toString();
-//            String rate = bagsumDetails.get("Rate").toString();
-//            String amount = bagsumDetails.get("Amount").toString();
-//
-//            // Create a table for each data row
-//            Table dataTable = new Table(columnWidths);
-//            dataTable.setTextAlignment(TextAlignment.LEFT);
-//
-//            // Increase the font size for data rows
-//            dataTable.setFontSize(12);
-//
-//            // Add data cells to the table
-//            dataTable.addCell(String.format("%-2d", serialNumber));
-//            dataTable.addCell(brief);
-//            dataTable.addCell(rate);
-//            dataTable.addCell(amount);
-//
-//            // Adjust the cell padding for data cells (both horizontal and vertical)
-//            dataTable.setPadding(5);
-//
-//            // Increase the row height to add 50 spaces between rows
-//            dataTable.setHeight(50);
-//
-//            // Add the data table to the document
-//            document.add(dataTable);
-//
-//            serialNumber++;
-//        }
-//
-//
-//        JsonNode coolieNode = subObjectData.get("Coolie");
-//        JsonNode TOTALNode = subObjectData.get("TOTAL");
-//        JsonNode AmountNode = subObjectData.get("Amount");
-//        JsonNode SCNode = subObjectData.get("S.C");
-//        JsonNode LuggageNode = subObjectData.get("Luggage");
-//        JsonNode EXPNode = subObjectData.get("EXP");
-//
-//
-//        String coolieValue = coolieNode.asText();
-//        String TOTALvalue = TOTALNode.asText();
-//        String amountValue = AmountNode.asText();
-//        String SCValue = SCNode.asText();
-//        String laggageValue = LuggageNode.asText();
-//        String EXPValue = EXPNode.asText();
-//
-//        Paragraph valuesParagraphs = new Paragraph()
-//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-//                .setFontSize(14)
-//                .add(new Text("Coolie - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-//                .add(new Text(coolieValue)).add("\n")
-//                .add(new Text("S.C - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-//                .add(new Text(SCValue)).add("\n")
-//                .add(new Text("Luggage - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-//                .add(new Text(laggageValue)).add("\n")
-//                .add(new Text("EXP - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-//                .add(new Text(EXPValue));
-//
-//        document.add(valuesParagraphs);
-//
-//        Paragraph valuesParagraphs2 = new Paragraph()
-//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-//                .setFontSize(14)
-//                .setMarginLeft(80)
-//                .add(new Text("Amount- ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-//                .add(new Text(amountValue)).add("\n")
-//                .add(new Text("EXP- ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-//                .add(new Text(EXPValue)).add("\n")
-//                .add(new Text("TOTAL - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-//                .add(new Text(TOTALvalue)).add("\n");
-//
-//
-//        document.add(valuesParagraphs2);
-//
-//        document.close();
-//
-//    }
-
-
-
     private void addBody(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
-        List<Map<String, BigDecimal>> detailsList = new ArrayList<>();
+        List<Map<String, Map<String, Double>>> detailsList = new ArrayList<>(); // Use Map<String, Map<String, Double>> for detailsList
+
+
         List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
-        try {
-            // Get the "KGSUM" object
-            JsonNode kgsumNode = subObjectData.get("KGSUM");
-
-            if (kgsumNode != null && kgsumNode.isObject()) {
-                for (Iterator<String> it = kgsumNode.fieldNames(); it.hasNext(); ) {
-                    String rateKey = it.next();
-                    BigDecimal rate = new BigDecimal(rateKey);
-                    JsonNode arrayToCalculate = kgsumNode.get(rateKey);
-
-                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-                        for (JsonNode value : arrayToCalculate) {
-                            String stringValue = value.asText();
-                            BigDecimal numericValue = new BigDecimal(stringValue);
-                            BigDecimal amount = numericValue.multiply(rate);
-                            Map<String, BigDecimal> arrayDetails = new HashMap<>();
-                            arrayDetails.put("Brief", numericValue);
-                            arrayDetails.put("Rate", rate);
-                            arrayDetails.put("Amount", amount);
-                            detailsList.add(arrayDetails);
-                        }
-                    }
-                }
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
         try {
             // Get the "BAGSUM" object
             JsonNode bagsumNode = subObjectData.get("BAGSUM");
 
             if (bagsumNode != null && bagsumNode.isObject()) {
+                int numRates = bagsumNode.size(); // Number of rates
+
+                int index = 0; // Index to keep track of the current position in arrays
+
                 // Iterate through all keys within the "BAGSUM" object
                 for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
                     String rateKey = it.next();
                     BigDecimal rate;
-                    String rateString;
+                    String rateString = "Rate: " + rateKey; // Default rate string
 
-                    if ("0".equals(rateKey)) {
-                        rate = BigDecimal.ZERO;
-                        rateString = "Rate: NO SALE";
-                    } else {
+                    if (!"NO SALE".equals(rateKey)) {
                         rate = new BigDecimal(rateKey);
-                        rateString = "Rate: " + rateKey;
+                    } else {
+                        rate = BigDecimal.ZERO; // Set rate to BigDecimal.ZERO for "NO SALE"
+                        rateString = "Rate: NO SALE"; // Hard-coded "Rate: NO SALE" for the output
                     }
 
                     JsonNode arrayToCalculate = bagsumNode.get(rateKey);
@@ -1061,6 +474,7 @@ public class GenerateBillService implements GenerateBillImpl {
                         for (JsonNode value : arrayToCalculate) {
                             String stringValue = value.asText();
 
+                            // Check if the value is "NO SALE" and skip it
                             if (!"NO SALE".equals(stringValue)) {
                                 BigDecimal numericValue = new BigDecimal(stringValue);
                                 amount = amount.add(numericValue.multiply(rate));
@@ -1073,153 +487,218 @@ public class GenerateBillService implements GenerateBillImpl {
                         rateDetails.put("Rate", rate);
                         rateDetails.put("Amount", amount);
 
+
                         // Add the rate details to the list
                         bagsumDetailsList.add(rateDetails);
 
-//                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
+
+                        System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
+
+                        System.out.println("Brief: " + rateString);
+                        System.out.println("Rate: " + rate);
+                        System.out.println("Amount: " + amount);
+
                     }
                 }
+
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
 
+
         PageSize a3PageSize = PageSize.A3;
-
-        // Calculate 90% of the A3 page dimensions
-        float scaledWidth = a3PageSize.getWidth() * 0.9f;
-        float scaledHeight = a3PageSize.getHeight() * 0.9f;
-
-
-        // Define column widths
-        float[] columnWidths = {1, 2, 2, 4};
-
-        // Initialize the serial number
+        document.getPdfDocument().setDefaultPageSize(a3PageSize);
+        float[] columnWidths = {50f, 400f, 70f, 80f};
         int serialNumber = 1;
-
-        // Create a table for the header row
         Table headerTable = new Table(columnWidths);
-        headerTable.setTextAlignment(TextAlignment.LEFT);
+        headerTable.setTextAlignment(TextAlignment.CENTER);
+        headerTable.setMarginLeft(30);
+        headerTable.setMarginTop(30);
 
-        // Increase the font size for the header row
-        headerTable.setFontSize(14);
+        headerTable.setFontSize(12);
 
-        // Add header cells to the table
         headerTable.addCell("SL NO");
         headerTable.addCell("Brief");
         headerTable.addCell("Rate");
         headerTable.addCell("Amount");
-
-        // Adjust the cell padding for header cells (both horizontal and vertical)
         headerTable.setPadding(5);
-
         document.add(headerTable);
-
-        // Iterate through detailsList and add data rows
-//        List<Map<String, BigDecimal>> detailsList = /* Your detailsList */;
-// Iterate through detailsList and add data rows
-        for (Map<String, BigDecimal> details : detailsList) {
-            String brief = details.get("Brief").toString();
-            BigDecimal rate = details.get("Rate");
-            String amount = details.get("Amount").toString();
-
-            // Create a table for each data row
-            Table dataTable = new Table(columnWidths);
-            dataTable.setTextAlignment(TextAlignment.LEFT);
-
-            // Increase the font size for data rows
-            dataTable.setFontSize(12);
-
-            // Add data cells to the table
-            dataTable.addCell(String.format("%-2d", serialNumber));
-            dataTable.addCell(brief);
-
-            // Check if the rate is zero and replace it with "NO SALE"
-            if (rate.compareTo(BigDecimal.ZERO) == 0) {
-                dataTable.addCell("NO SALE");
-            } else {
-                dataTable.addCell(rate.toString());
-            }
-
-            dataTable.addCell(amount);
-
-            // Adjust the cell padding for data cells (both horizontal and vertical)
-            dataTable.setPadding(5);
-
-            // Increase the row height to add 50 spaces between rows
-            dataTable.setHeight(50);
-
-            // Add the data table to the document
-            document.add(dataTable);
-
-            serialNumber++;
-        }
-        // Iterate through bagsumDetailsList and add data rows
-//        List<Map<String, BigDecimal>> bagsumDetailsList = /* Your bagsumDetailsList */;
 
         for (Map<String, BigDecimal> bagsumDetails : bagsumDetailsList) {
             String brief = bagsumDetails.get("Brief").toString();
-            BigDecimal rate = bagsumDetails.get("Rate");
+            String rate = bagsumDetails.get("Rate").toString();
             String amount = bagsumDetails.get("Amount").toString();
-
-            // Create a table for each data row
             Table dataTable = new Table(columnWidths);
             dataTable.setTextAlignment(TextAlignment.LEFT);
-
-            // Increase the font size for data rows
+            dataTable.setMarginLeft(30);
             dataTable.setFontSize(12);
-
-            // Add data cells to the table
             dataTable.addCell(String.format("%-2d", serialNumber));
             dataTable.addCell(brief);
-
-            // Check if the rate is zero and replace it with "NO SALE"
-            if (rate.compareTo(BigDecimal.ZERO) == 0) {
-                dataTable.addCell("NO SALE");
-            } else {
-                dataTable.addCell(rate.toString());
-            }
-
-            dataTable.addCell(amount);
-
-            // Adjust the cell padding for data cells (both horizontal and vertical)
-            dataTable.setPadding(5);
-
-            // Increase the row height to add 50 spaces between rows
+            Paragraph rateParagraph = new Paragraph(rate);
+            rateParagraph.setTextAlignment(TextAlignment.CENTER);
+            dataTable.addCell(rateParagraph);
+            Paragraph amountParagraph = new Paragraph(amount);
+            amountParagraph.setTextAlignment(TextAlignment.CENTER);
+            dataTable.addCell(amountParagraph);
+            dataTable.setPadding(10);
             dataTable.setHeight(50);
-
-            // Add the data table to the document
             document.add(dataTable);
+
 
             serialNumber++;
         }
+        // Loop over detailsList
+        // Loop over detailsList
+        JsonNode kgsumNode = subObjectData.get("KGSUM");
+
+///Use the fieldIterator to loop over kgsumNode fields
+        Iterator<Map.Entry<String, JsonNode>> fieldIterator = kgsumNode.fields();
+        while (fieldIterator.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fieldIterator.next();
+            String rateKey = entry.getKey(); // Store the rateKey value before entering the loop
+            JsonNode arrayToCalculate = entry.getValue();
+
+            if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+                List<String> briefValues = new ArrayList<>();
+
+                for (JsonNode value : arrayToCalculate) {
+                    String stringValue = value.asText();
+                    briefValues.add(stringValue);
+                }
+
+                // Calculate the number of rows needed for "Brief" values
+                int numRows = (int) Math.ceil(briefValues.size() / 4.0);
+
+                for (int row = 0; row < numRows; row++) {
+                    // Create a new data table for the details
+                    Table dataTable = new Table(columnWidths);
+                    dataTable.setTextAlignment(TextAlignment.LEFT);
+                    dataTable.setMarginLeft(30);
+                    dataTable.setFontSize(12);
+
+                    dataTable.addCell(String.format("%-2d", serialNumber));
+
+                    String str = "";
+                    for (int i = row * 4; i < (row + 1) * 4 && i < briefValues.size(); i++) {
+                        str += briefValues.get(i) + " " + " ";
+
+                    }
+                    dataTable.addCell(str);
+
+
+//                    Paragraph rateParagraph = new Paragraph(String.valueOf(rateKey));
+                    Paragraph rateParagraph;
+                    if ("0".equals(rateKey)) {
+                        rateParagraph = new Paragraph("NO SALE");
+                    } else {
+                        rateParagraph = new Paragraph(String.valueOf(rateKey));
+                    }
+                    rateParagraph.setTextAlignment(TextAlignment.CENTER);
+                    dataTable.addCell(rateParagraph);
+
+                    // Calculate the total amount for the "Amount" column based on this set of "Brief" values
+//                    double totalAmountByRate = briefValues.subList(row * 4, Math.min((row + 1) * 4, briefValues.size()))
+//                            .stream()
+//                            .mapToDouble(Double::parseDouble)
+//                            .sum();
+                    double totalAmountByRate;
+                    if ("0".equals(rateKey)) {
+                        totalAmountByRate = 0.0; // Set a fixed value for "NO SALE"
+                    } else {
+                        totalAmountByRate = briefValues.subList(row * 4, Math.min((row + 1) * 4, briefValues.size()))
+                                .stream()
+                                .mapToDouble(Double::parseDouble)
+                                .sum();
+                    }
+                    Paragraph amountParagraph = new Paragraph(String.valueOf(totalAmountByRate * Double.parseDouble(rateKey)));
+                    amountParagraph.setTextAlignment(TextAlignment.CENTER);
+                    dataTable.addCell(amountParagraph);
+
+                    dataTable.setPadding(10);
+                    dataTable.setHeight(50);
+                    document.add(dataTable);
+
+                    // Increment the serial number for the next set of "Brief" values
+                    serialNumber++;
+                }
+            }
+        }
+
 
         JsonNode coolieNode = subObjectData.get("Coolie");
-        JsonNode TOTALNode = subObjectData.get("TOTAL");
-        JsonNode AmountNode = subObjectData.get("Amount");
-        JsonNode SCNode = subObjectData.get("S.C");
         JsonNode LuggageNode = subObjectData.get("Luggage");
-        JsonNode EXPNode = subObjectData.get("EXP");
+        JsonNode SCNode = subObjectData.get("S.C");
+        JsonNode AmountNode = subObjectData.get("Amount");
 
+        // Calculate the sum of "Coolie" values
+        int Cooliesum = 0;
+        for (JsonNode valueNode : coolieNode) {
+            try {
+                int value = Integer.parseInt(valueNode.asText());
+                Cooliesum += value;
+            } catch (NumberFormatException e) {
+                // Ignore non-integer values
+            }
+        }
+        int Luggagesum = 0;
+        for (JsonNode valueNode : LuggageNode) {
+            try {
+                int value = Integer.parseInt(valueNode.asText());
+                Luggagesum += value;
+            } catch (NumberFormatException e) {
+                // Ignore non-integer values
+            }
+        }
+        int SCsum = 0;
+        for (JsonNode valueNode : SCNode) {
+            try {
+                int value = Integer.parseInt(valueNode.asText());
+                SCsum += value;
+            } catch (NumberFormatException e) {
+                // Ignore non-integer values
+            }
+        }
 
-        String coolieValue = coolieNode.asText();
-        String TOTALvalue = TOTALNode.asText();
-        String amountValue = AmountNode.asText();
-        String SCValue = SCNode.asText();
-        String laggageValue = LuggageNode.asText();
-        String EXPValue = EXPNode.asText();
+        int Amountsum = 0;
+        for (JsonNode valueNode : AmountNode) {
+            try {
+                int value = Integer.parseInt(valueNode.asText());
+                Amountsum += value;
+            } catch (NumberFormatException e) {
+                // Ignore non-integer values
+            }
+        }
+
+        System.out.println("Sum of Coolie values: " + Cooliesum);
+        String coolieSumAsString = String.valueOf(Cooliesum);
+        System.out.println("Sum of Coolie values: " + Luggagesum);
+        String LuggagesumAsString = String.valueOf(Luggagesum);
+        System.out.println("Sum of Coolie values: " + SCsum);
+        String SCsumAsString = String.valueOf(SCsum);
+
+        double expToal = Cooliesum + Luggagesum + SCsum;
+        String expToalAsString = String.valueOf(expToal);
+
+        System.out.println("Sum of Coolie values: " + expToal);
+        System.out.println("Sum of Coolie values: " + Amountsum);
+        String AmountsumAsString = String.valueOf(Amountsum);
+
+        double total = Amountsum - expToal;
+        String totalAsString = String.valueOf(total);
+
 
         Paragraph valuesParagraphs = new Paragraph()
                 .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
                 .setFontSize(14)
                 .add(new Text("Coolie - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-                .add(new Text(coolieValue)).add("\n")
+                .add(new Text(coolieSumAsString)).add("\n")
                 .add(new Text("S.C - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-                .add(new Text(SCValue)).add("\n")
+                .add(new Text(SCsumAsString)).add("\n")
                 .add(new Text("Luggage - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-                .add(new Text(laggageValue)).add("\n")
+                .add(new Text(LuggagesumAsString)).add("\n")
                 .add(new Text("EXP - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-                .add(new Text(EXPValue));
+                .add(new Text(expToalAsString));
 
         document.add(valuesParagraphs);
 
@@ -1228,19 +707,19 @@ public class GenerateBillService implements GenerateBillImpl {
                 .setFontSize(14)
                 .setMarginLeft(80)
                 .add(new Text("Amount- ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-                .add(new Text(amountValue)).add("\n")
+                .add(new Text(AmountsumAsString)).add("\n")
                 .add(new Text("EXP- ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-                .add(new Text(EXPValue)).add("\n")
+                .add(new Text(expToalAsString)).add("\n")
                 .add(new Text("TOTAL - ").setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-                .add(new Text(TOTALvalue)).add("\n");
+                .add(new Text(totalAsString)).add("\n");
 
 
         document.add(valuesParagraphs2);
 
+
         document.close();
 
     }
-
 
 
     private String formatDate(String originalDate) {
@@ -1257,301 +736,5 @@ public class GenerateBillService implements GenerateBillImpl {
     }
 
 
-//    private void addHeader(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
-//        String date = null;
-//        JsonNode dateNode = subObjectData.get("DATE");
-//        if (dateNode != null && dateNode.isArray()) {
-//            for (JsonNode dateValue : dateNode) {
-//                date = dateValue.asText();
-//
-//            }
-//        }
-//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
-//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
-//        Image image = new Image(imageData);
-//
-//        float imageWidth = PageSize.A3.getWidth() * 0.94f; // Use A3 size directly
-//        image.setWidth(imageWidth);
-//
-//        document.add(image);
-//
-//        Paragraph paragraph = new Paragraph()
-//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-//                .setFontSize(35)
-//                .setMarginTop(30) // Add some top margin for spacing
-//                .setWidth(imageWidth)
-//                .setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
-//
-//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
-//        paragraph.addTabStops(tabStop);
-//
-//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
-//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)))
-//                .add(new Text(subObjectName) // Add the subObjectName with bold font
-//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)))
-//                .add(new Tab())
-//                .add(new Text("DATE: ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)))
-//                .add(new Text(date) // Add the date
-//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)));
-//
-//        document.add(paragraph);
-//
-//
-//        document.add(businessParagraph);
-//    }
-
-
-//    private void addHeader(Document document, String subObjectName, JsonNode subObjectData) throws IOException {
-//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
-//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
-//        Image image = new Image(imageData);
-//
-//        float imageWidth = document.getPdfDocument().getDefaultPageSize().getWidth() * 0.94f;
-//        image.setWidth(imageWidth);
-//
-//        document.add(image);
-//
-//        Paragraph paragraph = new Paragraph()
-//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-//                .setFontSize(25)
-//                .setMarginTop(25) // Add some top margin for spacing
-//                .setWidth(imageWidth)
-//                .setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
-//
-//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
-//        paragraph.addTabStops(tabStop);
-//
-//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
-//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(subObjectName) // Add the businessName with bold font
-//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
-//
-//
-//        document.add(paragraph);
-//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
-//        document.add(separator);
-//        paragraph.add(businessParagraph);
-//        paragraph.add(new Text("                              "));
-////        paragraph.add(dateText);
-//
-//        document.add(paragraph);
-//    }
-
-
-//    private void addHeader(Document document,String subObjectName,JsonNode subObjectData) throws IOException {
-//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
-//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
-//        Image image = new Image(imageData);
-//
-//        float imageWidth = a3PageSize.getWidth() * 0.94f;
-//        image.setWidth(imageWidth);
-//
-//        document.add(image);
-//
-//        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
-//                .setWidth(imageWidth).setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
-//
-//
-//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
-//        paragraph.addTabStops(tabStop);
-//
-//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
-//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
-//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
-//
-//        Text dateText = new Text("DATE :    " + date);
-////                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
-//
-//// Add businessDiv and dateText with space between them
-//        paragraph.add(businessParagraph);
-//        paragraph.add(new Text("                              "));
-//        paragraph.add(dateText);
-//
-//        document.add(paragraph);
-//
-//
-//        // Add the "Particulars" line with dynamic values
-//        StringBuilder particularsLine = new StringBuilder("Particulars : ");
-//        for (int i = 0; i < particularsList.size(); i++) {
-//            if (i > 0) {
-//                particularsLine.append("," + "\t");
-//            }
-//            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
-//        }
-//
-//        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
-//                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
-//
-//        document.add(particularsParagraph);
-//
-//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
-//        document.add(separator);
-//
-//    }
-
-
-    private void addJsonObjectToDocument(Document document, JSONObject jsonObject, int level, Map<String, List<String>> keyValueMap) {
-        for (String key : jsonObject.keySet()) {
-            Object value = jsonObject.get(key);
-
-            if (value instanceof JSONObject) {
-                // If the value is another JSONObject, recursively add it to the document
-//                System.out.println("Processing JSONObject: " + key);
-                Paragraph keyParagraph = new Paragraph(key).setMarginLeft(level * 20);
-                document.add(keyParagraph);
-                addJsonObjectToDocument(document, (JSONObject) value, level + 1, keyValueMap);
-            } else if (value instanceof JSONArray) {
-                // If the value is an array, store it as a list of strings
-                JSONArray jsonArray = (JSONArray) value;
-                List<String> values = new ArrayList<>();
-                for (int i = 0; i < jsonArray.length(); i++) {
-                    values.add(jsonArray.optString(i));
-                }
-                keyValueMap.put(key, values);
-
-                // Perform calculations based on specific keys
-                if (key.equals("RATE")) {
-//                    System.out.println("Calculating RATE values.");
-                    double sum = 0.0;
-                    for (String rateValue : values) {
-                        sum += Double.parseDouble(rateValue);
-                    }
-                    Paragraph calculationParagraph = new Paragraph("Sum of RATE values: " + sum).setMarginLeft(level * 20);
-                    document.add(calculationParagraph);
-                }
-            } else {
-                // If the value is not a JSONObject or an array, store it as a single string
-//                System.out.println("Processing value: " + value);
-                Paragraph keyValueParagraph = new Paragraph(key + ": " + value).setMarginLeft(level * 20);
-                document.add(keyValueParagraph);
-                List<String> values = new ArrayList<>();
-                values.add(String.valueOf(value));
-                keyValueMap.put(key, values);
-
-                // Check if the key is a unit ("BAG'S" or "KG'S")
-                if (key.equals("BAG'S") || key.equals("KG'S")) {
-                    JSONObject unitData = jsonObject.getJSONObject(key);
-                    System.out.println("Processing unit: " + key);
-
-                    // Merge and collect values for specific fields
-                    List<String> items = new ArrayList<>();
-                    List<String> coolies = new ArrayList<>();
-                    List<String> scValues = new ArrayList<>();
-                    List<String> luggages = new ArrayList<>();
-                    List<String> itemQtys = new ArrayList<>();
-
-                    for (String unitKey : unitData.keySet()) {
-                        JSONObject itemObject = unitData.getJSONObject(unitKey);
-                        items.addAll(getValuesFromObject(itemObject, "ITEM"));
-                        coolies.addAll(getValuesFromObject(itemObject, "Coolie"));
-                        scValues.addAll(getValuesFromObject(itemObject, "S.C"));
-                        luggages.addAll(getValuesFromObject(itemObject, "Luggage"));
-                        itemQtys.addAll(getValuesFromObject(itemObject, "Item qty"));
-                    }
-
-                    // Perform calculations and add them to the document
-                    double scSum = 0.0;
-                    for (String scValue : scValues) {
-                        scSum += Double.parseDouble(scValue);
-                    }
-                    System.out.println("Sum of S.C values: " + scSum);
-                    Paragraph scCalculation = new Paragraph("Sum of S.C values: " + scSum).setMarginLeft(level * 20);
-                    document.add(scCalculation);
-                }
-            }
-        }
-    }
-
-    // Helper method to get values from a JSONObject for a specific key
-    private List<String> getValuesFromObject(JSONObject jsonObject, String key) {
-        List<String> values = new ArrayList<>();
-        if (jsonObject.has(key)) {
-            JSONArray jsonArray = jsonObject.getJSONArray(key);
-            for (int i = 0; i < jsonArray.length(); i++) {
-                values.add(jsonArray.optString(i));
-            }
-        }
-        return values;
-    }
-
-
 }
 
-
-//        try {
-//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-//            PdfWriter pdfWriter = new PdfWriter(outputStream);
-//            PageSize a3PageSize = PageSize.A3;
-//            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-//            pdfDocument.setDefaultPageSize(a3PageSize);
-//            Document document = new Document(pdfDocument);
-//            // Header Section
-//            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
-//
-//            // Body Section
-////            addBody(document, particularsList, rate, amount);
-//
-//            // Footer Section
-////            addFooter(document);
-//
-//            document.close();
-//
-//            return outputStream.toByteArray();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            return new byte[0];
-//        }
-//PageSize a3PageSize = PageSize.A3;
-//                pdfDocument.setDefaultPageSize(a3PageSize);
-//                Document document = new Document(pdfDocument);
-
-
-//    private void addHeader(Document document,String subObjectName,JsonNode subObjectData) throws IOException {
-//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
-//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
-//        Image image = new Image(imageData);
-//
-//        float imageWidth = a3PageSize.getWidth() * 0.94f;
-//        image.setWidth(imageWidth);
-//
-//        document.add(image);
-//
-//        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
-//                .setWidth(imageWidth).setHorizontalAlignment(com.itextpdf.layout.property.HorizontalAlignment.CENTER);
-//
-//
-//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
-//        paragraph.addTabStops(tabStop);
-//
-//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
-//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
-//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
-//
-//        Text dateText = new Text("DATE :    " + date);
-////                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
-//
-//// Add businessDiv and dateText with space between them
-//        paragraph.add(businessParagraph);
-//        paragraph.add(new Text("                              "));
-//        paragraph.add(dateText);
-//
-//        document.add(paragraph);
-//
-//
-//        // Add the "Particulars" line with dynamic values
-//        StringBuilder particularsLine = new StringBuilder("Particulars : ");
-//        for (int i = 0; i < particularsList.size(); i++) {
-//            if (i > 0) {
-//                particularsLine.append("," + "\t");
-//            }
-//            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
-//        }
-//
-//        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
-//                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
-//
-//        document.add(particularsParagraph);
-//
-//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
-//        document.add(separator);
-//
-//    }
