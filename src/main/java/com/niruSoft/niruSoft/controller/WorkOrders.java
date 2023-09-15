@@ -1,53 +1,47 @@
 package com.niruSoft.niruSoft.controller;
 
-import com.itextpdf.io.font.FontConstants;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
-import com.itextpdf.kernel.colors.Color;
-import com.itextpdf.kernel.colors.ColorConstants;
-import com.itextpdf.kernel.colors.DeviceRgb;
-import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
-import com.itextpdf.layout.Style;
-import com.itextpdf.layout.borders.Border;
-import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.*;
-import com.itextpdf.layout.property.*;
-import com.itextpdf.text.DocumentException;
+import com.itextpdf.layout.properties.TextAlignment;
+import com.niruSoft.niruSoft.model.PDFData;
 import com.niruSoft.niruSoft.service.GenerateBillService;
-import com.niruSoft.niruSoft.utils.CustomCellRenderer;
 import com.niruSoft.niruSoft.utils.ExcelValidator;
-//import com.niruSoft.niruSoft.utils.NoBottomBorderCellRenderer;
-import org.apache.pdfbox.io.MemoryUsageSetting;
-import org.apache.pdfbox.multipdf.PDFMergerUtility;
-import org.apache.pdfbox.pdmodel.PDDocument;
-import org.apache.pdfbox.pdmodel.PDPage;
-import org.apache.pdfbox.pdmodel.PDPageContentStream;
-import org.apache.pdfbox.pdmodel.common.PDRectangle;
-import org.apache.pdfbox.pdmodel.encryption.AccessPermission;
-import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.http.*;
+import org.springframework.core.io.InputStreamResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
-import com.itextpdf.layout.element.Paragraph;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.io.InputStream;
-import java.util.*;
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
+
+import static com.niruSoft.niruSoft.utils.CommonUtils.formatDate;
 
 @RestController
 public class WorkOrders {
@@ -63,802 +57,303 @@ public class WorkOrders {
         this.generateBillService = generateBillService;
     }
 
-//    @PostMapping("/uploadExcel")
-//    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
-//        boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
-//
-//        if (!file.isEmpty() && isValid) {
-//            JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
-//
-//            // Convert JSONObject to a formatted JSON string for printing
-//            String jsonData = excelData.toString(4); // Use an indentation of 4 spaces for formatting
-//            System.out.println("Excel Data JSON:\n" + jsonData);
-//
-//            // Rest of your code...
-//
-//            // Return the response...
-//        } else {
-//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
-//        }
-//        return null;
-//    }
-//@PostMapping("/uploadExcel")
-//public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws Exception {
-//    boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
-//
-//    if (!file.isEmpty() && isValid) {
-//        JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
-//
-//        List<byte[]> pdfBytes = generateBillService.generatePdfFromJson(String.valueOf(excelData));
-//        HttpHeaders headers = new HttpHeaders();
-//        headers.setContentType(MediaType.APPLICATION_PDF);
-//        headers.setContentDispositionFormData("attachment", "excel_data.pdf");
-//        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
-//    } else {
-//        // Return a JSON response with an error message
-//        Map<String, String> errorResponse = new HashMap<>();
-//        errorResponse.put("error", "Invalid document");
-//        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-//    }
-//}
-//@PostMapping("/uploadExcel")
-//public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws Exception {
-//    boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
-//
-//    if (!file.isEmpty() && isValid) {
-//        JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
-//
-//        List<byte[]> pdfBytesList = generateBillService.generatePdfFromJson(String.valueOf(excelData));
-//
-//        // Create a ByteArrayOutputStream to hold the zip file
-//        ByteArrayOutputStream zipOutputStream = new ByteArrayOutputStream();
-//        try (ZipOutputStream zip = new ZipOutputStream(zipOutputStream)) {
-//            for (int i = 0; i < pdfBytesList.size(); i++) {
-//                // Create a unique entry name for each PDF
-//                String entryName = "pdf_" + i + ".pdf";
-//                zip.putNextEntry(new ZipEntry(entryName));
-//                zip.write(pdfBytesList.get(i));
-//                zip.closeEntry();
-//            }
-//        }
-//
-//        // Set up the response headers
-//        HttpHeaders headers = new HttpHeaders();
-//        headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-//        headers.setContentDispositionFormData("attachment", "pdfs.zip");
-//
-//        return new ResponseEntity<>(zipOutputStream.toByteArray(), headers, HttpStatus.OK);
-//    } else {
-//        // Return a JSON response with an error message
-//        Map<String, String> errorResponse = new HashMap<>();
-//        errorResponse.put("error", "Invalid document");
-//        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
-//    }
-//}
 
-
-    @PostMapping("/uploadExcel")
-    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws Exception {
+    @PostMapping("/generate-pdf-zip")
+    public ResponseEntity<InputStreamResource> generatePDFZip(@RequestParam("file") MultipartFile file) throws IOException, InterruptedException, ExecutionException {
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(new InputStreamResource(new ByteArrayInputStream("No file uploaded".getBytes())));
+        }
         boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
+        if (!isValid) {
+            return ResponseEntity.badRequest().body(new InputStreamResource(new ByteArrayInputStream("Invalid Excel file".getBytes())));
+        }
+        JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
+        List<CompletableFuture<PDFData>> pdfFutures = new ArrayList<>();
+        for (String farmerName : excelData.keySet()) {
+            JSONObject farmerData = excelData.getJSONObject(farmerName);
+            String jsonData = farmerData.toString();
+            JSONArray dateArray = farmerData.getJSONArray("DATE");
+            if (!dateArray.isEmpty()) {
+                String date = formatDate(dateArray.getString(0));
+                CompletableFuture<PDFData> pdfFuture = generatePDFFromJSONAsync(jsonData, farmerName, date);
+                pdfFutures.add(pdfFuture);
+            }
+        }
 
-        if (!file.isEmpty() && isValid) {
-            JSONObject excelData = generateBillService.processExcelData(file.getInputStream());
-            List<byte[]> pdfBytesList = generateBillService.generatePdfFromJson(String.valueOf(excelData));
-
-            ByteArrayOutputStream mergedPdfOutputStream = mergePDFs(pdfBytesList);
-
+        try {
+            CompletableFuture<Void> allOf = CompletableFuture.allOf(pdfFutures.toArray(new CompletableFuture[0]));
+            allOf.get();
+            List<PDFData> pdfDataList = pdfFutures.stream().map(future -> {
+                try {
+                    return future.get();
+                } catch (InterruptedException | ExecutionException e) {
+                    throw new RuntimeException("Failed to retrieve PDF data", e);
+                }
+            }).collect(Collectors.toList());
+            byte[] zipBytes = createZipFile(pdfDataList);
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_PDF);
-            headers.setContentDispositionFormData("attachment", "merged_pdf.pdf");
-
-            return new ResponseEntity<>(mergedPdfOutputStream.toByteArray(), headers, HttpStatus.OK);
-        } else {
-            Map<String, String> errorResponse = new HashMap<>();
-            errorResponse.put("error", "Invalid document");
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
+            headers.setContentDispositionFormData("attachment", "Farmer_Data.zip"); // Correct the filename here
+            headers.setContentLength(zipBytes.length);
+            InputStreamResource zipResource = new InputStreamResource(new ByteArrayInputStream(zipBytes));
+            return ResponseEntity.ok().headers(headers).body(zipResource);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new InputStreamResource(new ByteArrayInputStream("Error generating ZIP file".getBytes())));
         }
     }
 
-    private ByteArrayOutputStream mergePDFs(List<byte[]> pdfBytesList) throws IOException {
-        ByteArrayOutputStream mergedPdfOutputStream = new ByteArrayOutputStream();
+    @Async
+    public CompletableFuture<PDFData> generatePDFFromJSONAsync(String jsonData, String farmerName, String date) throws JsonProcessingException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        JsonNode jsonNode = objectMapper.readTree(jsonData);
+        System.out.println(jsonNode);
 
-        try (PDDocument mergedPdf = new PDDocument()) {
-            for (byte[] pdfBytes : pdfBytesList) {
-                try (InputStream pdfInputStream = new ByteArrayInputStream(pdfBytes)) {
-                    PDDocument individualPdf = PDDocument.load(pdfInputStream);
-                    for (PDPage page : individualPdf.getPages()) {
-                        mergedPdf.addPage(page);
+        JsonNode itemsNode = jsonNode.get("ITEM");
+        StringBuilder itemsText = new StringBuilder();
+        if (itemsNode != null && itemsNode.isArray()) {
+            boolean firstItem = true; // To keep track of the first item
+            for (JsonNode item : itemsNode) {
+                String itemValue = item.asText();
+                if (!itemValue.isEmpty()) {
+                    if (!firstItem) {
+                        itemsText.append(", "); // Add a comma and space for subsequent items
+                    }
+                    itemsText.append(itemValue);
+                    firstItem = false;
+                }
+            }
+        }
+        List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
+        try {
+            // Get the "BAGSUM" object
+            JsonNode bagsumNode = jsonNode.get("BAGSUM");
+
+            if (bagsumNode != null && bagsumNode.isObject()) {
+                int numRates = bagsumNode.size(); // Number of rates
+
+                int index = 0; // Index to keep track of the current position in arrays
+
+                // Iterate through all keys within the "BAGSUM" object
+                for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
+                    String rateKey = it.next();
+                    BigDecimal rate;
+                    String rateString = "Rate: " + rateKey; // Default rate string
+
+                    if (!"NO SALE".equals(rateKey)) {
+
+                        rate = new BigDecimal(rateKey);
+                    } else {
+                        rate = BigDecimal.ZERO; // Set rate to BigDecimal.ZERO for "NO SALE"
+                        rateString = "Rate: NO SALE"; // Hard-coded "Rate: NO SALE" for the output
+                    }
+
+                    JsonNode arrayToCalculate = bagsumNode.get(rateKey);
+
+                    if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+                        // Initialize variables to store amount and brief sum for the current rate
+                        BigDecimal amount = BigDecimal.ZERO;
+                        BigDecimal briefSum = BigDecimal.ZERO;
+
+                        // Iterate through the values in the array and calculate the amount and brief sum
+                        for (JsonNode value : arrayToCalculate) {
+                            String stringValue = value.asText();
+
+                            // Check if the value is "NO SALE" and skip it
+                            if (!"NO SALE".equals(stringValue)) {
+                                BigDecimal numericValue = new BigDecimal(stringValue);
+                                amount = amount.add(numericValue.multiply(rate));
+                                briefSum = briefSum.add(numericValue);
+                            }
+                        }
+
+                        Map<String, BigDecimal> rateDetails = new HashMap<>();
+                        rateDetails.put("Brief", briefSum);
+                        rateDetails.put("Rate", rate);
+                        rateDetails.put("Amount", amount);
+
+
+                        // Add the rate details to the list
+                        bagsumDetailsList.add(rateDetails);
+
+
+//                                            System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
+//
+//                                            System.out.println("Brief: " + rateString);
+//                                            System.out.println("Rate: " + rate);
+//                                            System.out.println("Amount: " + amount);
+
                     }
                 }
+
             }
-            mergedPdf.save(mergedPdfOutputStream);
+        } catch (Exception e) {
+            e.printStackTrace();
         }
 
-        return mergedPdfOutputStream;
-    }
+
+        try {
+            return CompletableFuture.supplyAsync(() -> {
+                try (ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream(); PdfWriter pdfWriter = new PdfWriter(pdfOutputStream); PdfDocument pdfDocument = new PdfDocument(pdfWriter)) {
+                    PageSize a5PageSize = new PageSize(PageSize.A5);
+                    Document document = new Document(pdfDocument, a5PageSize);
+//                    pdfDocument.getDocumentInfo().setTitle("Empty PDF");
+                    ClassPathResource imageResource = new ClassPathResource("Image/SKTRADER.jpg");
+                    ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
+                    Image image = new Image(imageData);
+
+                    float imageWidth = a5PageSize.getWidth() * 0.92f;
+                    float imageHeight = (imageWidth * (image.getImageHeight() / image.getImageWidth())) + 5;
+                    image.setWidth(imageWidth);
+                    image.setHeight(imageHeight);
+                    float leftMargin = 18;
+                    float topMargin = 10;
+                    image.setFixedPosition(leftMargin, pdfDocument.getDefaultPageSize().getTop() - imageHeight - topMargin);
+                    document.add(image);
+
+                    Paragraph nameAndDate = new Paragraph();
+                    nameAndDate.setMarginTop(imageHeight);
+
+                    Text msText = new Text("M/s : ");
+                    Text farmerNameText = new Text(farmerName);
+                    Text dateText = new Text("Date : ");
+                    Text dateValueText = new Text(date);
 
 
-    public static byte[] convertJSONObjectToPDF(JSONObject jsonData) throws Exception {
-        // Create a ByteArrayOutputStream to store all PDF content
-        ByteArrayOutputStream allPDFsOutputStream = new ByteArrayOutputStream();
+                    nameAndDate.add(msText);
+                    nameAndDate.add(farmerNameText);
+                    nameAndDate.add(new Tab());
+                    nameAndDate.add(new Tab());
+                    nameAndDate.add(new Tab());
+                    nameAndDate.add(dateText);
+                    nameAndDate.add(dateValueText);
+                    document.add(nameAndDate);
 
-        // Iterate through each key (object) in the JSON
-        Iterator<String> keys = jsonData.keys();
-        while (keys.hasNext()) {
-            String key = keys.next();
-            JSONObject objectData = jsonData.getJSONObject(key);
+                    Paragraph particulars = new Paragraph();
+                    Text msTextP = new Text("Particulars : ");
+                    Text farmerNameTextP = new Text(itemsText.toString());
+                    particulars.add(msTextP);
+                    particulars.add(farmerNameTextP);
+                    document.add(particulars);
 
-            // Create a new PDF document for each object
-            PDDocument document = new PDDocument();
-            PDPage page = new PDPage();
-            document.addPage(page);
 
-            try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                contentStream.beginText();
-                contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12);
-                contentStream.newLineAtOffset(50, 700); // Adjust the position as needed
+                    float[] columnWidths = {100f, 350f, 70f, 80f};
+                    int serialNumber = 1;
+                    Table headerTable = new Table(columnWidths);
+                    headerTable.setFontSize(11);
+                    headerTable.addCell("SL NO");
+                    headerTable.addCell("Brief");
+                    headerTable.addCell("Rate");
+                    headerTable.addCell("Amount");
+                    document.add(headerTable);
 
-                // Convert JSON data to a formatted string
-                String formattedJSON = objectData.toString(4);
+                    for (Map<String, BigDecimal> bagsumDetails : bagsumDetailsList) {
+                        String brief = bagsumDetails.get("Brief").toString();
+                        String rate = bagsumDetails.get("Rate").toString();
+                        String amount = bagsumDetails.get("Amount").toString();
+                        Table dataTable = new Table(new float[]{100f, 350f, 70f, 80f});
+//                        dataTable.setTextAlignment(TextAlignment.LEFT);
+                        dataTable.setFontSize(11);
 
-                // Split the formatted JSON into lines
-                String[] lines = formattedJSON.split("\n");
+                        dataTable.addCell(String.format("%-2d", serialNumber));
+                        dataTable.addCell(brief);
+                        Paragraph rateParagraph = new Paragraph(rate);
+                        rateParagraph.setTextAlignment(TextAlignment.CENTER);
+                        dataTable.addCell(rateParagraph);
+                        Paragraph amountParagraph = new Paragraph(amount);
+                        amountParagraph.setTextAlignment(TextAlignment.CENTER);
+                        dataTable.addCell(amountParagraph);
+                        document.add(dataTable);
 
-                // Write each line to the PDF
-                for (String line : lines) {
-                    contentStream.showText(line);
-                    contentStream.newLine();
+
+                        serialNumber++;
+                    }
+
+
+                    JsonNode kgsumNode = jsonNode.get("KGSUM");
+
+                    Iterator<Map.Entry<String, JsonNode>> fieldIterator = kgsumNode.fields();
+                    while (fieldIterator.hasNext()) {
+                        Map.Entry<String, JsonNode> entry = fieldIterator.next();
+                        String rateKey = entry.getKey();
+                        JsonNode arrayToCalculate = entry.getValue();
+
+                        if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+                            List<String> briefValues = new ArrayList<>();
+
+                            for (JsonNode value : arrayToCalculate) {
+                                String stringValue = value.asText();
+                                briefValues.add(stringValue);
+                            }
+
+                            int numRows = (int) Math.ceil(briefValues.size() / 4.0);
+
+                            for (int row = 0; row < numRows; row++) {
+                                Table dataTable = new Table(new float[]{100f, 350f, 70f, 80f});
+                                dataTable.setFontSize(11);
+                                dataTable.addCell(String.format("%-2d", serialNumber));
+
+                                String str = "";
+                                for (int i = row * 4; i < (row + 1) * 4 && i < briefValues.size(); i++) {
+                                    str += briefValues.get(i) + " " + " ";
+
+                                }
+                                dataTable.addCell(str);
+
+                                String rateValue = "0".equals(rateKey) ? String.join(" ", briefValues) : rateKey;
+                                Paragraph rateParagraph = new Paragraph(rateValue);
+                                rateParagraph.setTextAlignment(TextAlignment.CENTER);
+                                rateParagraph.setFontSize(8);
+                                dataTable.addCell(rateParagraph);
+
+                                double totalAmountByRate = 0;
+                                if (!"0".equals(rateKey)) {
+                                    totalAmountByRate = briefValues.subList(row * 4, Math.min((row + 1) * 4, briefValues.size())).stream().mapToDouble(Double::parseDouble).sum();
+                                }
+                                Paragraph amountParagraph = new Paragraph(String.valueOf(totalAmountByRate * Double.parseDouble(rateKey)));
+                                amountParagraph.setTextAlignment(TextAlignment.CENTER);
+                                dataTable.addCell(amountParagraph);
+
+                                document.add(dataTable);
+
+                                serialNumber++;
+                            }
+                        }
+                    }
+
+                    document.close();
+
+                    String pdfFileName = farmerName + " - " + date + ".pdf";
+                    byte[] pdfBytes = pdfOutputStream.toByteArray();
+
+                    return new PDFData(pdfFileName, pdfBytes);
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to generate PDF", e);
                 }
+            });
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate PDF asynchronously", e);
+        }
+    }
 
-                contentStream.endText();
+
+    public static byte[] createZipFile(List<PDFData> pdfDataList) throws IOException {
+        ByteArrayOutputStream zipOutputStream = new ByteArrayOutputStream();
+
+        try (ZipOutputStream zip = new ZipOutputStream(zipOutputStream)) {
+            for (PDFData pdfData : pdfDataList) {
+                String pdfFileName = pdfData.fileName();
+                byte[] pdfBytes = pdfData.pdfBytes();
+
+                ZipEntry zipEntry = new ZipEntry(pdfFileName);
+                zip.putNextEntry(zipEntry);
+                zip.write(pdfBytes);
+                zip.closeEntry();
             }
-
-            // Create a ByteArrayOutputStream to store the PDF content for this object
-            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-
-            // Save the document to the ByteArrayOutputStream
-            document.save(outputStream);
-            document.close();
-
-            // Append this object's PDF content to the allPDFsOutputStream
-            allPDFsOutputStream.write(outputStream.toByteArray());
-
-            // Add a separator between PDFs (you can customize this as needed)
-            allPDFsOutputStream.write("\n\n\n".getBytes());
         }
 
-        // Return the combined PDF content as a byte array
-        return allPDFsOutputStream.toByteArray();
-    }
-//    @PostMapping("/uploadExcel")
-//    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
-//        boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
-//
-//        if (!file.isEmpty() && isValid) {
-//            Map<String, Map<String, List<String>>> processExcelData = generateBillService.processExcelData(file.getInputStream());
-//            ObjectMapper objectMapper = new ObjectMapper();
-//            String jsonData = objectMapper.writeValueAsString(processExcelData);
-//            System.out.println(jsonData);
-//            // Generate the PDF from processed data
-//            byte[] pdfBytes = generateBillService.generatePdfFromJson(jsonData);
-//
-//            // Prepare the PDF response
-//            HttpHeaders headers = new HttpHeaders();
-//            headers.setContentType(MediaType.APPLICATION_PDF);
-//            headers.setContentDispositionFormData("attachment", "processedData.pdf");
-//
-//            InputStreamResource inputStreamResource = new InputStreamResource(new ByteArrayInputStream(pdfBytes));
-//
-//            return ResponseEntity.ok()
-//                    .headers(headers)
-//                    .contentType(MediaType.APPLICATION_PDF)
-//                    .body(inputStreamResource);
-//        } else {
-//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
-//        }
-//    }
-
-
-//    @PostMapping("/uploadExcel")
-//    public ResponseEntity<?> generatePDF(@RequestParam("file") MultipartFile file) throws IOException {
-//        boolean isValid = ExcelValidator.validateExcel(file.getInputStream());
-//        if (!file.isEmpty() && isValid) {
-//            Map<String, Map<String, Map<String, List<String>>>>excelData = generateBillService.processExcelData(file.getInputStream());
-//            ObjectMapper objectMapper = new ObjectMapper();
-//            String jsonData = objectMapper.writeValueAsString(excelData);
-//            System.out.println(jsonData);
-//
-////            generatePdfFromJson(excelData);
-//            // Create a new PDF document
-////            PDDocument document = new PDDocument();
-//
-////            // Iterate through the JSON data and add it to the PDF
-////            for (Map<String, Map<String, Map<String, List<String>>>>: excelData.entrySet()) {
-////                String farmerName = entry.getKey();
-////                Map<String, List<String>> data = entry.getValue();
-////
-////                PDPage page = new PDPage(PDRectangle.A3);
-////                document.addPage(page);
-////
-////                try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-////                    contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12);
-////
-////                    // Start a new text block for each farmer
-////                    contentStream.beginText();
-////                    contentStream.newLineAtOffset(50, 700);
-////
-////                    contentStream.showText("Farmer Name: " + farmerName);
-////                    contentStream.newLine();
-////
-////                    // Add other data fields as needed
-////                    for (Map.Entry<String, List<String>> fieldEntry : data.entrySet()) {
-////                        String fieldName = fieldEntry.getKey();
-////                        List<String> fieldValues = fieldEntry.getValue();
-////
-////                        contentStream.showText(fieldName + ": " + String.join(", ", fieldValues));
-////                        contentStream.newLine();
-////                    }
-////
-////                    // End the text block for this farmer
-////                    contentStream.endText();
-////                }
-////            }
-//
-//            // Save the PDF to a byte array
-////            ByteArrayOutputStream = new ByteArrayOutputStream();
-////            document.save(byteArrayOutputStream);
-////            document.close();
-//
-//            // Prepare the PDF response
-//            HttpHeaders headers = new HttpHeaders();
-//            headers.setContentType(MediaType.APPLICATION_PDF);
-//            headers.setContentDispositionFormData("attachment", "processedData.pdf");
-//
-////            InputStreamResource inputStreamResource = new InputStreamResource(new ByteArrayInputStream(toByteArray()));
-//
-////            return ResponseEntity.ok()
-////                    .headers(headers)
-////                    .contentType(MediaType.APPLICATION_PDF)
-////                    .body(inputStreamResource);
-////        } else {
-//            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid document");
-////        }
-//    }
-//        return null;
-//    }
-
-
-//    public byte[] generatePdfFromJson(Map<String, Map<String, List<String>>> excelData) {
-////      public void  gettingvalue(String topLevelKey, String combinedLine){
-////
-////        }
-//        String businessName = "BCP MUNSWAMY";
-//        String date = "14-8-2023";
-//        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
-//        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER"); // Example products
-//        String rate = "90";
-//        String amount = "89";
-//        try {
-//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-//            PdfWriter pdfWriter = new PdfWriter(outputStream);
-//
-//            PageSize a3PageSize = PageSize.A3;
-//
-//            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-//            pdfDocument.setDefaultPageSize(a3PageSize);
-//            Document document = new Document(pdfDocument);
-//
-//            // Header Section
-//            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
-//
-//            // Body Section
-////            addBody(document, particularsList, rate, amount);
-//
-//            // Footer Section
-////            addFooter(document);
-//
-//            document.close();
-//
-//            document.close();
-//
-//            return outputStream.toByteArray();
-//        } catch (Exception e) {
-//            e.printStackTrace();
-//            return new byte[0];
-//        }
-//    }
-//
-
-//    private byte[] generatePdfFromJson(String jsonData) throws IOException {
-//        PDDocument document = new PDDocument();
-//        PDPage page = new PDPage(PDRectangle.A4);
-//        document.addPage(page);
-//
-//        try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-//            contentStream.setFont(PDType1Font.HELVETICA_BOLD, 12);
-////            contentStream.newLineAtOffset(50, 700);
-//
-//            // Parse the JSON data
-//            ObjectMapper objectMapper = new ObjectMapper();
-//            Map<String, Map<String, List<String>>> dataMap = objectMapper.readValue(jsonData, new TypeReference<Map<String, Map<String, List<String>>>>() {
-//            });
-//
-//            // Iterate through the JSON data and add it to the PDF
-//            for (Map.Entry<String, Map<String, List<String>>> entry : dataMap.entrySet()) {
-//                String farmerName = entry.getKey();
-//                Map<String, List<String>> farmerData = entry.getValue();
-//
-//                contentStream.showText("Farmer Name: " + farmerName);
-//                contentStream.newLine();
-//
-//                // Add other data fields as needed
-//                for (Map.Entry<String, List<String>> fieldEntry : farmerData.entrySet()) {
-//                    String fieldName = fieldEntry.getKey();
-//                    List<String> fieldValues = fieldEntry.getValue();
-//
-//                    contentStream.showText(fieldName + ": " + String.join(", ", fieldValues));
-//                    contentStream.newLine();
-//                }
-//
-//                contentStream.newLine();
-//            }
-//        }
-//
-//        // Save the PDF to a byte array
-//        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-//        document.save(byteArrayOutputStream);
-//        document.close();
-//
-//        return byteArrayOutputStream.toByteArray();
-//    }
-//
-//
-
-
-    //    private void addJsonObjectToDocument(Document document, JSONObject jsonObject, int level, Map<String, List<String>> keyValueMap) {
-//        for (String key : jsonObject.keySet()) {
-//            Object value = jsonObject.get(key);
-//
-//            if (value instanceof JSONObject) {
-//                // If the value is another JSONObject, recursively add it to the document
-//                Paragraph keyParagraph = new Paragraph(key).setMarginLeft(level * 20);
-//                document.add(keyParagraph);
-//                addJsonObjectToDocument(document, (JSONObject) value, level + 1, keyValueMap);
-//            } else if (value instanceof JSONArray) {
-//                // If the value is an array, store it as a list of strings
-//                JSONArray jsonArray = (JSONArray) value;
-//                List<String> values = new ArrayList<>();
-//                for (int i = 0; i < jsonArray.length(); i++) {
-//                    values.add(jsonArray.optString(i));
-//                }
-//                keyValueMap.put(key, values);
-//
-//                // Add key-value pair to the document
-//                Paragraph keyValueParagraph = new Paragraph(key + ": " + values.toString()).setMarginLeft(level * 20);
-//                document.add(keyValueParagraph);
-//            } else {
-//                // If the value is not a JSONObject or an array, store it as a single string
-//                Paragraph keyValueParagraph = new Paragraph(key + ": " + value).setMarginLeft(level * 20);
-//                document.add(keyValueParagraph);
-//                List<String> values = new ArrayList<>();
-//                values.add(String.valueOf(value));
-//                keyValueMap.put(key, values);
-//            }
-//        }
-//    }
-//private void addJsonObjectToDocument(Document document, JSONObject jsonObject, int level, Map<String, List<String>> keyValueMap) {
-//    for (String key : jsonObject.keySet()) {
-//        Object value = jsonObject.get(key);
-//
-//        if (value instanceof JSONObject) {
-//            // If the value is another JSONObject, recursively add it to the document
-//            Paragraph keyParagraph = new Paragraph(key).setMarginLeft(level * 20);
-//            document.add(keyParagraph);
-//            addJsonObjectToDocument(document, (JSONObject) value, level + 1, keyValueMap);
-//        } else if (value instanceof JSONArray) {
-//            // If the value is an array, store it as a list of strings
-//            JSONArray jsonArray = (JSONArray) value;
-//            List<String> values = new ArrayList<>();
-//            for (int i = 0; i < jsonArray.length(); i++) {
-//                values.add(jsonArray.optString(i));
-//
-//            }
-//
-//            keyValueMap.put(key, values);
-//
-//            // Add key-value pair to the document
-//            Paragraph keyValueParagraph = new Paragraph(key + ": " + values.toString()).setMarginLeft(level * 20);
-//            document.add(keyValueParagraph);
-//
-//            // Perform calculations based on specific keys
-//            if (key.equals("RATE")) {
-//                // Calculate something using the values in the rate array
-//                double sum = 0.0;
-//                for (String rateValue : values) {
-//                    sum += Double.parseDouble(rateValue);
-//                }
-//                Paragraph calculationParagraph = new Paragraph("Sum of RATE values: " + sum).setMarginLeft(level * 20);
-//                document.add(calculationParagraph);
-//            }
-//        } else {
-//            // If the value is not a JSONObject or an array, store it as a single string
-//            Paragraph keyValueParagraph = new Paragraph(key + ": " + value).setMarginLeft(level * 20);
-//            document.add(keyValueParagraph);
-//            List<String> values = new ArrayList<>();
-//            values.add(String.valueOf(value));
-//            keyValueMap.put(key, values);
-//        }
-//    }
-//}
-
-
-//    @GetMapping("/generate-pdf")
-//    public ResponseEntity<byte[]> generatePdf() {
-//        String businessName = "BCP MUNSWAMY";
-//        String date = "14-8-2023";
-//        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
-//        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER"); // Example products
-//        String rate = "90";
-//        String amount = "89";
-//        try {
-//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-//            PdfWriter pdfWriter = new PdfWriter(outputStream);
-//
-//            PageSize a3PageSize = PageSize.A3;
-//
-//            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-//            pdfDocument.setDefaultPageSize(a3PageSize);
-//            Document document = new Document(pdfDocument);
-//
-//            // Header Section
-//            addHeader(document, a3PageSize, businessName, date, particularsList, productList);
-//
-//            // Body Section
-//            addBody(document, particularsList, rate, amount);
-//
-//            // Footer Section
-//            addFooter(document);
-//
-//            document.close();
-//
-//            byte[] pdfBytes = outputStream.toByteArray();
-//
-//            HttpHeaders headers = new HttpHeaders();
-//            headers.setContentType(MediaType.APPLICATION_PDF);
-//            headers.setContentDisposition(ContentDisposition.builder("inline").filename("generated-pdf.pdf").build());
-//
-//            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-//        }
-//    }
-//
-//    private void addHeader(Document document, PageSize a3PageSize, String businessName, String date, List<String> particularsList, List<String> productList) throws IOException {
-//        ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
-//        ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
-//        Image image = new Image(imageData);
-//
-//        float imageWidth = a3PageSize.getWidth() * 0.94f;
-//        image.setWidth(imageWidth);
-//
-//        document.add(image);
-//
-//        Paragraph paragraph = new Paragraph().setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN)).setFontSize(25).setMarginTop(25) // Add some top margin for spacing
-//                .setWidth(imageWidth).setHorizontalAlignment(HorizontalAlignment.CENTER);
-//
-//
-//        TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
-//        paragraph.addTabStops(tabStop);
-//
-//        Paragraph businessParagraph = new Paragraph().setMarginLeft(40) // Add a left margin
-//                .add(new Text("M/s :    ").setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD))).add(new Text(businessName) // Add the businessName with bold font
-//                        .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
-//
-//        Text dateText = new Text("DATE :    " + date);
-////                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
-//
-//// Add businessDiv and dateText with space between them
-//        paragraph.add(businessParagraph);
-//        paragraph.add(new Text("                              "));
-//        paragraph.add(dateText);
-//
-//        document.add(paragraph);
-//
-//
-//        // Add the "Particulars" line with dynamic values
-//        StringBuilder particularsLine = new StringBuilder("Particulars : ");
-//        for (int i = 0; i < particularsList.size(); i++) {
-//            if (i > 0) {
-//                particularsLine.append("," + "\t");
-//            }
-//            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
-//        }
-//
-//        Paragraph particularsParagraph = new Paragraph(particularsLine.toString()).setMarginLeft(4).setMarginTop(-3) // Add top margin for spacing
-//                .setFontSize(20).setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)).setHorizontalAlignment(HorizontalAlignment.CENTER);
-//
-//        document.add(particularsParagraph);
-//
-//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
-//        document.add(separator);
-//
-//    }
-
-//    private void addBody(Document document, List<String> particularsList, String rate, String amount) throws IOException {
-//        // Create a Div element for the table
-//        Div tableDiv = new Div().setWidth(UnitValue.createPercentValue(100)).setHeight(UnitValue.createPercentValue(100));
-//
-//        // Define a style for the table cells
-//        Style cellStyle = new Style().setPadding(10) // Increase padding for cell content
-//                .setFontSize(20).setTextAlignment(TextAlignment.CENTER) // Center-align text
-//                .setVerticalAlignment(VerticalAlignment.MIDDLE);
-//
-//        // Define a style for the header cells
-//        Style cellStyleHeader = new Style().setPadding(8) // Increase padding for cell content
-//                .setFontSize(18) // Increase font size for cell content
-//                .setTextAlignment(TextAlignment.CENTER) // Center-align text
-//                .setVerticalAlignment(VerticalAlignment.MIDDLE);
-//
-//        // Create the table for SLno, Brief, Rate, and Amount
-//        Table table = new Table(UnitValue.createPercentArray(new float[]{14, 54, 13, 18})).useAllAvailableWidth().setBorder(new SolidBorder(ColorConstants.BLACK, 1));
-//
-//        // Add table headers
-//        table.addCell(createCell("SLno", true).addStyle(cellStyleHeader));
-//        table.addCell(createCell("Brief", true).addStyle(cellStyleHeader));
-//        table.addCell(createCell("Rate", true).addStyle(cellStyleHeader));
-//        table.addCell(createCell("Amount", true).addStyle(cellStyleHeader));
-//
-//
-//        // Usage in your code
-//        Color customBorderColor = new DeviceRgb(255, 255, 255);
-//        int numRows = (int) Math.ceil((double) particularsList.size() / 4); // Calculate number of rows needed
-//
-//        for (int i = 0; i < numRows; i++) {
-//            boolean isLastRow = i == numRows - 1;
-//
-//            Cell cell = createCell(String.valueOf(i + 1), false);
-//            applyCellStyle(cell, isLastRow, customBorderColor);
-//            table.addCell(cell);
-//
-//            cell = createCell(getParticularsText(particularsList, i), false);
-//            applyCellStyle(cell, isLastRow, customBorderColor);
-//            table.addCell(cell);
-//
-//            cell = createCell(rate, false);
-//            applyCellStyle(cell, isLastRow, customBorderColor);
-//
-//            if (i == numRows - 1) {
-//                cell = createCell(amount, false);
-//                applyCellStyle(cell, true, null);
-//            } else {
-//                cell = createCell("", false);
-//                cell.setBorder(Border.NO_BORDER); // Empty cell in non-last rows
-//            }
-//            table.addCell(cell);
-//        }
-//
-//        tableDiv.add(table);
-//        document.add(tableDiv);
-//        LineSeparator separator = new LineSeparator(new SolidLine(1f));
-//        Div separatorDiv = new Div().add(separator).setMarginTop(10).setMarginBottom(10);
-//        document.add(separatorDiv);
-//    }
-
-    private void applyCellStyle(Cell cell, boolean isLastCell, Color customBorderColor) {
-        if (!isLastCell) {
-            cell.setBorderBottom(new SolidBorder(customBorderColor, 1)); // Custom bottom border
-            cell.setNextRenderer(new CustomCellRenderer(cell, customBorderColor)); // Attach custom renderer
-        }
-        cell.setPadding(8);
-        cell.setFontSize(18);
-        cell.setTextAlignment(TextAlignment.CENTER);
-        cell.setVerticalAlignment(VerticalAlignment.MIDDLE);
-    }
-
-    private String getParticularsText(List<String> particularsList, int rowIndex) {
-        int startIndex = rowIndex * 4;
-        int endIndex = Math.min(startIndex + 4, particularsList.size());
-
-        List<String> sublist = particularsList.subList(startIndex, endIndex);
-        return String.join("\n", sublist);
+        return zipOutputStream.toByteArray();
     }
 
 
-    private void addFooter(Document document) {
-        // Add footer content here
-        // For example, add your footer text, page number, etc.
-        // Use the document.add() method to add elements to the footer
-    }
-
-
-//    @GetMapping("/generate-pdf")
-//    public ResponseEntity<byte[]> generatePdfs() {
-//        String businessName = "BCP MUNSWAMY";
-//        String date = "14-8-2023";
-//        List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1", "21 + 2"); // Example particulars
-//        List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER", "TOMATOES", "CARROTS", "CUCUMBER", "TOMATOES", "CARROTS"); // Example products
-//        String rate = "90";
-//        String amount = "89";
-//
-//        try {
-//            ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-//            PdfWriter pdfWriter = new PdfWriter(outputStream);
-//
-//            PageSize a3PageSize = PageSize.A3;
-//
-//            PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-//            pdfDocument.setDefaultPageSize(a3PageSize);
-//            Document document = new Document(pdfDocument);
-//
-//            ClassPathResource imageResource = new ClassPathResource("Image/navBar.jpg");
-//            ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
-//            Image image = new Image(imageData);
-//
-//            // Calculate image width as 94% of A3 page width
-//            float imageWidth = a3PageSize.getWidth() * 0.94f;
-//            image.setWidth(imageWidth);
-//
-//            document.add(image);
-//
-//            // Add centered text below the image
-//            Paragraph paragraph = new Paragraph()
-//                    .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-//                    .setFontSize(25)
-//                    .setMarginTop(25) // Add some top margin for spacing
-//                    .setWidth(imageWidth)
-//                    .setHorizontalAlignment(HorizontalAlignment.CENTER);
-//
-//            // Create a tab stop to align the text
-//            TabStop tabStop = new TabStop(imageWidth / 2, TabAlignment.CENTER);
-//            paragraph.addTabStops(tabStop);
-//
-//            Paragraph businessParagraph = new Paragraph()
-//                    .setMarginLeft(40) // Add a left margin
-//                    .add(new Text("M/s :    ")
-//                            .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)))
-//                    .add(new Text(businessName) // Add the businessName with bold font
-//                            .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD)));
-//
-//            Text dateText = new Text("DATE :    " + date);
-////                    .setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD));
-//
-//// Add businessDiv and dateText with space between them
-//            paragraph.add(businessParagraph);
-//            paragraph.add(new Text("                              "));
-//            paragraph.add(dateText);
-//
-//            document.add(paragraph);
-//
-//
-//            // Add the "Particulars" line with dynamic values
-//            StringBuilder particularsLine = new StringBuilder("Particulars : ");
-//            for (int i = 0; i < particularsList.size(); i++) {
-//                if (i > 0) {
-//                    particularsLine.append("," + "\t");
-//                }
-//                particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
-//            }
-//
-//            Paragraph particularsParagraph = new Paragraph(particularsLine.toString())
-//                    .setMarginLeft(4)
-//                    .setMarginTop(-3) // Add top margin for spacing
-//                    .setFontSize(20)
-//                    .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD))
-//                    .setHorizontalAlignment(HorizontalAlignment.CENTER);
-//
-//            document.add(particularsParagraph);
-//
-//            // Create the table for SLno, Brief, Rate, and Amount
-//            Table table = new Table(UnitValue.createPercentArray(new float[]{10, 40, 20, 30}))
-//                    .useAllAvailableWidth()
-//                    .setBorder(new SolidBorder(ColorConstants.BLACK, 1));
-//
-//            // Add table headers
-//            table.addCell(createCell("SLno", true));
-//            table.addCell(createCell("Brief", true));
-//            table.addCell(createCell("Rate", true));
-//            table.addCell(createCell("Amount", true));
-//
-//            // Add table rows with data
-//            table.addCell(createCell(" ", false));
-//            table.addCell(createCell(particularsList.toString(), false));
-//            table.addCell(createCell(amount, false));
-//            table.addCell(createCell(rate, false));
-//
-//
-//            // Add the table to the document
-//            document.add(table);
-//
-//            document.close();
-//
-//            byte[] pdfBytes = outputStream.toByteArray();
-//
-//            HttpHeaders headers = new HttpHeaders();
-//            headers.setContentType(MediaType.APPLICATION_PDF);
-//            headers.setContentDisposition(ContentDisposition.builder("inline")
-//                    .filename("generated-pdf.pdf")
-//                    .build());
-//
-//            return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-//        }
-//    }
-
-
-    private Cell createCell(String content, boolean isHeader) throws IOException {
-        Cell cell = new Cell();
-        cell.add(new Paragraph(content).setFont(PdfFontFactory.createFont(FontConstants.HELVETICA_BOLD)));
-        return cell;
-    }
-
-
-    //@GetMapping("/generate-pdf")
-//public ResponseEntity<byte[]> generatePdf() {
-//    String businessName = "BCP MUNSWAMY";
-//    String date = "14-8-2023";
-//    List<String> particularsList = Arrays.asList("21 + 2", "15 + 3", "10 + 1"); // Example particulars
-//    List<String> productList = Arrays.asList("CUCUMBER", "TOMATOES", "CARROTS"); // Example products
-//
-//    try {
-//        ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-//        PdfWriter pdfWriter = new PdfWriter(outputStream);
-//
-//        PageSize a3PageSize = PageSize.A3;
-//
-//        PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-//        pdfDocument.setDefaultPageSize(a3PageSize);
-//        Document document = new Document(pdfDocument);
-//
-//        // ... (Image and other setup)
-//
-//        // Add centered text below the image
-//        Paragraph paragraph = new Paragraph()
-//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_ROMAN))
-//                .setFontSize(25)
-//                .setMarginTop(25) // Add some top margin for spacing
-////                .setWidth(imageWidth)
-//                .setHorizontalAlignment(HorizontalAlignment.CENTER);
-//
-//        // ... (businessParagraph, dateText, etc.)
-//
-//        document.add(paragraph);
-//
-//        // Add the "Particulars" line with dynamic values
-//        StringBuilder particularsLine = new StringBuilder("Particulars : ");
-//        for (int i = 0; i < particularsList.size(); i++) {
-//            if (i > 0) {
-//                particularsLine.append(","+"\t");
-//            }
-//            particularsLine.append(particularsList.get(i)).append(" ").append(" ").append(productList.get(i));
-//        }
-//
-//        Paragraph particularsParagraph = new Paragraph(particularsLine.toString())
-//                .setMarginLeft(4)
-//                .setMarginTop(-3) // Add top margin for spacing
-//                .setFontSize(20)
-//                .setFont(PdfFontFactory.createFont(FontConstants.TIMES_BOLD))
-//                .setHorizontalAlignment(HorizontalAlignment.CENTER);
-//
-//        document.add(particularsParagraph);
-//
-//        document.close();
-//
-//        byte[] pdfBytes = outputStream.toByteArray();
-//
-//        HttpHeaders headers = new HttpHeaders();
-//        headers.setContentType(MediaType.APPLICATION_PDF);
-//        headers.setContentDisposition(ContentDisposition.builder("inline")
-//                .filename("generated-pdf.pdf")
-//                .build());
-//
-//        return new ResponseEntity<>(pdfBytes, headers, HttpStatus.OK);
-//    } catch (IOException e) {
-//        e.printStackTrace();
-//        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
-//    }
-//}
 }
 
