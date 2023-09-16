@@ -97,6 +97,12 @@
 
 		<!-- https://mvnrepository.com/artifact/com.itextpdf/itextpdf -->
 
+<!--		<dependency>-->
+<!--			<groupId>com.syncfusion</groupId>-->
+<!--			<artifactId>syncfusion-docio</artifactId>-->
+<!--			<version>18.4.0.30</version>-->
+<!--		</dependency>-->
+
 
 	</dependencies>
 
