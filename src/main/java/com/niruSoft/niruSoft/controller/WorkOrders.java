@@ -3,28 +3,31 @@ package com.niruSoft.niruSoft.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
+import com.itextpdf.io.font.PdfEncodings;
+import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
-import com.itextpdf.kernel.events.Event;
-import com.itextpdf.kernel.events.PdfDocumentEvent;
+
+import com.itextpdf.kernel.font.PdfFont;
+import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.pdf.PdfDocument;
-import com.itextpdf.kernel.pdf.PdfPage;
+
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.*;
-import com.itextpdf.layout.layout.LayoutArea;
-import com.itextpdf.layout.layout.LayoutResult;
-import com.itextpdf.layout.properties.AreaBreakType;
+
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
-import com.itextpdf.layout.renderer.DocumentRenderer;
+
 import com.niruSoft.niruSoft.model.PDFData;
 import com.niruSoft.niruSoft.service.GenerateBillService;
 import com.niruSoft.niruSoft.utils.ExcelValidator;
+
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -55,12 +58,10 @@ import java.util.zip.ZipOutputStream;
 import com.itextpdf.kernel.colors.Color;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.layout.element.Table;
-//import com.itextpdf.layout.border.SolidBorder;
 
+import static com.itextpdf.styledxmlparser.css.CommonCssConstants.FONT;
 import static com.niruSoft.niruSoft.utils.CommonUtils.formatDate;
 
-//import com.syncfusion.pdf.*;
-//import java.awt.Color;
 
 @RestController
 public class WorkOrders {
@@ -70,6 +71,7 @@ public class WorkOrders {
 
     @Autowired
     private final GenerateBillService generateBillService;
+
 
     public WorkOrders(ExcelValidator excelValidator, GenerateBillService generateBillService) {
         this.excelValidator = excelValidator;
@@ -120,6 +122,7 @@ public class WorkOrders {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(new InputStreamResource(new ByteArrayInputStream("Error generating ZIP file".getBytes())));
         }
     }
+
     private static boolean isNumeric(String str) {
         try {
             new BigDecimal(str);
@@ -135,6 +138,7 @@ public class WorkOrders {
         JsonNode jsonNode = objectMapper.readTree(jsonData);
         JsonNode kgsumNode = jsonNode.get("KGSUM");
         System.out.println(jsonNode);
+
 
         JsonNode itemsNode = jsonNode.get("ITEM");
         StringBuilder itemsText = new StringBuilder();
@@ -158,6 +162,7 @@ public class WorkOrders {
 //        JsonNode TOTALNode = subObjectData.get("TOTAL");
 //        JsonNode EXPNode = subObjectData.get("EXP");
         JsonNode AmountNode = jsonNode.get("Amount");
+        JsonNode AdvanceNode = jsonNode.get("Adv./Cash");
         int Cooliesum = 0;
         for (JsonNode valueNode : coolieNode) {
             try {
@@ -194,18 +199,30 @@ public class WorkOrders {
                 // Ignore non-integer values
             }
         }
+        int AdvanceSum = 0;
+        for (JsonNode valueNode : AdvanceNode) {
+            try {
+                int value = Integer.parseInt(valueNode.asText());
+                AdvanceSum += value;
+            } catch (NumberFormatException e) {
+                // Ignore non-integer values
+            }
+        }
+
 //        System.out.println(Cooliesum);
         String coolieSumAsString = String.valueOf(Cooliesum);
         String LuggagesumAsString = String.valueOf(Luggagesum);
         String SCsumAsString = String.valueOf(SCsum);
         String AmountsumAsString = String.valueOf(Amountsum);
-        double expToal = Cooliesum + Luggagesum + SCsum;
+        String AdvancesumAsString = String.valueOf(AdvanceSum);
+        double expToal = Cooliesum + Luggagesum + SCsum + AdvanceSum;
         String expToalAsString = String.valueOf(expToal);
+
 
         double total = Amountsum - expToal;
         String totalAsString = String.valueOf(total);
 
-        List<Map<String, BigDecimal>> bagsumDetailsList = new ArrayList<>();
+        List<Map<String, String>> bagsumDetailsList = new ArrayList<>();
         try {
             // Get the "BAGSUM" object
             JsonNode bagsumNode = jsonNode.get("BAGSUM");
@@ -213,41 +230,30 @@ public class WorkOrders {
             if (bagsumNode != null && bagsumNode.isObject()) {
                 int numRates = bagsumNode.size(); // Number of rates
 
-                int index = 0; // Index to keep track of the current position in arrays
-
                 // Iterate through all keys within the "BAGSUM" object
                 for (Iterator<String> it = bagsumNode.fieldNames(); it.hasNext(); ) {
                     String rateKey = it.next();
                     BigDecimal rate;
-                    String rateString = "Rate: " + rateKey; // Default rate string
+                    String rateString; // Default rate string
 
                     if ("0".equals(rateKey)) {
+                        // If rate is 0, set it to "0" and dynamically determine rateString
+                        rate = BigDecimal.ZERO;
+
                         JsonNode arrayToCalculate = bagsumNode.get(rateKey);
-                        if (arrayToCalculate != null && arrayToCalculate.isArray() && arrayToCalculate.size() > 0) {
-                            // If rate is 0, set it to the first value in the associated array
-                            JsonNode firstValue = arrayToCalculate.get(0);
-                            if (firstValue.isTextual()) {
-                                // Check if the first value is a text (non-numeric)
-                                rateString = firstValue.asText();
-                                rate = BigDecimal.ZERO; // Set rate to 0
-                            } else if (firstValue.isNumber()) {
-                                rate = new BigDecimal(firstValue.asText());
-                                rateString = "Rate: " + rate;
-                            } else {
-                                // Handle other cases as needed
-                                rate = BigDecimal.ZERO;
-                                rateString = "Rate: 0";
-                            }
+                        if (arrayToCalculate != null && arrayToCalculate.isArray() && !arrayToCalculate.isEmpty()) {
+                            // Use the first element of the array as rateString
+                            rateString = arrayToCalculate.get(0).asText();
                         } else {
-                            // Handle the case when there's no valid value in the associated array
-                            rate = BigDecimal.ZERO;
-                            rateString = "Rate: 0";
+                            // Default value if the array is empty or missing
+                            rateString = "NO SALE";
                         }
                     } else {
                         // For other rateKey values, parse the rateKey to a BigDecimal
                         rate = new BigDecimal(rateKey);
                         rateString = "Rate: " + rate;
                     }
+
                     JsonNode arrayToCalculate = bagsumNode.get(rateKey);
 
                     if (arrayToCalculate != null && arrayToCalculate.isArray()) {
@@ -267,28 +273,17 @@ public class WorkOrders {
                                 // Handle non-numeric value (e.g., skip or set to a default)
                                 numericValue = BigDecimal.ZERO; // For example, set to zero
                             }
-
                         }
-
-                        Map<String, BigDecimal> rateDetails = new HashMap<>();
-                        rateDetails.put("Brief", briefSum);
-                        rateDetails.put("Rate", rate);
-                        rateDetails.put("Amount", amount);
-
+                        Map<String, String> rateDetails = new HashMap<>();
+                        rateDetails.put("Brief", briefSum.toString());
+                        rateDetails.put("Rate", rate.toString()); // Convert BigDecimal to String
+                        rateDetails.put("Amount", amount.toString());
+                        rateDetails.put("RateString", rateString);
 
                         // Add the rate details to the list
                         bagsumDetailsList.add(rateDetails);
-
-
-//                                            System.out.println(rateString + ", Brief: " + briefSum + ", Amount: " + amount);
-//
-//                                            System.out.println("Brief: " + rateString);
-//                                            System.out.println("Rate: " + rate);
-//                                            System.out.println("Amount: " + amount);
-
                     }
                 }
-
             }
         } catch (Exception e) {
             e.printStackTrace();
@@ -317,8 +312,8 @@ public class WorkOrders {
                     Paragraph nameAndDate = new Paragraph();
                     nameAndDate.setMarginTop(imageHeight);
 
-                    Text msText = new Text("M/s : ");
-                    Text farmerNameText = new Text(farmerName);
+                    Text msText = new Text("M/s : ").setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
+                    Text farmerNameText = new Text(farmerName).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
                     Text dateText = new Text("Date : ");
                     Text dateValueText = new Text(date);
 
@@ -333,14 +328,12 @@ public class WorkOrders {
                     document.add(nameAndDate);
 
                     Paragraph particulars = new Paragraph();
-                    Text msTextP = new Text("Particulars : ");
+                    Text msTextP = new Text("Particulars : ").setFont(PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD));
                     Text farmerNameTextP = new Text(itemsText.toString());
                     particulars.add(msTextP);
                     particulars.add(farmerNameTextP);
                     document.add(particulars);
 
-//                    int minNumberOfRows = 9;
-//                    int emptyRowsNeeded = Math.max(minNumberOfRows - bagsumDetailsList.size(), 0);
                     int minNumberOfRows = 9;
                     int bagsumDetailsRowCount = bagsumDetailsList.size();
                     int kgsumNodeRowCount = calculateKgsumNodeRowCount(kgsumNode); // Implement a function to calculate rows from kgsumNode
@@ -353,31 +346,56 @@ public class WorkOrders {
                     int serialNumber = 1;
 
                     Table dataTable = new Table(new float[]{100f, 350f, 70f, 80f});
+                    dataTable.setBorder(new SolidBorder(blackColor, 1f));
                     SolidBorder whiteSolidBorder = new SolidBorder(1f);
                     whiteSolidBorder.setColor(whiteColor);
                     dataTable.setBorderBottom(whiteSolidBorder);
-                    dataTable.addCell("SL NO");
-                    dataTable.addCell("Brief");
-                    dataTable.addCell("Rate");
-                    dataTable.addCell("Amount");
-                    for (Map<String, BigDecimal> bagsumDetails : bagsumDetailsList) {
-                        String brief = bagsumDetails.get("Brief").toString();
-                        String rate = bagsumDetails.get("Rate").toString();
-                        String amount = bagsumDetails.get("Amount").toString();
+
+                    Cell slNoHeaderCell = new Cell().add(new Paragraph("SL NO")
+                                    .setFontSize(11)
+                                    .setBold())
+                            .setTextAlignment(TextAlignment.CENTER);
+                    Cell briefHeaderCell = new Cell().add(new Paragraph("Brief")
+                                    .setFontSize(11)
+                                    .setBold())
+                            .setTextAlignment(TextAlignment.CENTER);
+                    Cell rateHeaderCell = new Cell().add(new Paragraph("Rate")
+                                    .setFontSize(11)
+                                    .setBold())
+                            .setTextAlignment(TextAlignment.CENTER);
+                    Cell amountHeaderCell = new Cell().add(new Paragraph("Amount")
+                                    .setFontSize(11)
+                                    .setBold())
+                            .setTextAlignment(TextAlignment.CENTER);
+
+                    //Header are added.
+                    dataTable.addCell(slNoHeaderCell);
+                    dataTable.addCell(briefHeaderCell);
+                    dataTable.addCell(rateHeaderCell);
+                    dataTable.addCell(amountHeaderCell);
+
+                    for (Map<String, String> bagsumDetails : bagsumDetailsList) {
+                        String brief = bagsumDetails.get("Brief");
+                        String rate = bagsumDetails.get("Rate");
+                        String amount = bagsumDetails.get("Amount");
+                        String rateString = bagsumDetails.get("RateString");
 
                         Cell slNoCell = new Cell().add(new Paragraph(String.format("%-2d", serialNumber)));
                         slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+//                        slNoCell.setBorderBottom(null);
 
                         Cell briefCell = new Cell().add(new Paragraph(brief));
                         briefCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
-                        Cell rateCell = new Cell().add(new Paragraph(rate));
+                        Cell rateCell = new Cell().add(new Paragraph("0".equals(rate) ? rateString : rate));
                         rateCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
                         rateCell.setTextAlignment(TextAlignment.CENTER);
+//                        rateCell.setBorderBottom(null);
 
                         Cell amountCell = new Cell().add(new Paragraph(amount));
                         amountCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
                         amountCell.setTextAlignment(TextAlignment.CENTER);
+//                        amountCell.setBorderBottom(null);
 
                         dataTable.addCell(slNoCell);
                         dataTable.addCell(briefCell);
@@ -423,14 +441,16 @@ public class WorkOrders {
 
                                 // Create a cell for the Amount with a white border
                                 Cell amountCell = new Cell();
-                                double totalAmountByRate = 0;
+                                int totalAmountByRate = 0; // Initialize as an integer
                                 if (!"0".equals(rateKey)) {
-                                    totalAmountByRate = briefValues.subList(row * 4, Math.min((row + 1) * 4, briefValues.size()))
-                                            .stream()
-                                            .mapToDouble(Double::parseDouble)
-                                            .sum();
+                                    totalAmountByRate = (int) Math.round(
+                                            briefValues.subList(row * 4, Math.min((row + 1) * 4, briefValues.size()))
+                                                    .stream()
+                                                    .mapToDouble(Double::parseDouble)
+                                                    .sum()
+                                    );
                                 }
-                                amountCell.add(new Paragraph(String.valueOf(totalAmountByRate * Double.parseDouble(rateKey)))
+                                amountCell.add(new Paragraph(String.valueOf(totalAmountByRate * Integer.parseInt(rateKey)))
                                         .setTextAlignment(TextAlignment.CENTER));
                                 amountCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
@@ -448,7 +468,7 @@ public class WorkOrders {
                         for (int j = 0; j < 4; j++) { // Add 4 empty cells per row
                             Cell emptyCell = new Cell()
                                     .add(new Paragraph(""))
-                                    .setPadding(9) // Set padding to 5
+                                    .setPadding(8) // Set padding to 5
                                     .setBorderBottom(new SolidBorder(whiteColor, 1f)); // Set white bottom border
                             dataTable.addCell(emptyCell);
                         }
@@ -477,10 +497,16 @@ public class WorkOrders {
                     headerCell = new Cell().add(new Paragraph().setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE));
                     expTable.addCell(headerCell);
+                    expTable.addCell(new Cell().add(new Paragraph("Adv./cash").setTextAlignment(TextAlignment.CENTER)
+                            .setVerticalAlignment(VerticalAlignment.MIDDLE)));
+                    expTable.addCell(new Cell().add(new Paragraph(AdvancesumAsString).setTextAlignment(TextAlignment.CENTER)
+                            .setVerticalAlignment(VerticalAlignment.MIDDLE)));
+
                     expTable.addCell(new Cell().add(new Paragraph("Coolie").setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE)));
                     expTable.addCell(new Cell().add(new Paragraph(coolieSumAsString).setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE)));
+
                     expTable.addCell(new Cell().add(new Paragraph("Luggage").setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE)));
                     expTable.addCell(new Cell().add(new Paragraph(LuggagesumAsString).setTextAlignment(TextAlignment.CENTER)
@@ -508,9 +534,8 @@ public class WorkOrders {
                             .setTextAlignment(TextAlignment.RIGHT);
                     contentDiv.add(valuesParagraphs2);
 
+
                     document.add(contentDiv);
-
-
                     document.close();
 
                     String pdfFileName = farmerName + " - " + date + ".pdf";

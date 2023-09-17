@@ -9,7 +9,7 @@ import java.io.InputStream;
 public class ExcelValidator {
 
     private static final String[] EXPECTED_HEADERS = {
-            "DATE", "SALESMAN", "FARMERNAME", "ITEMQTY","ITEM","COOLIE","LUGGAGE","BCASH","C%","S.C","CUSTOMERNAME","QTY","RATE","UNIT","AMOUNT","NETAMT"
+            "DATE", "SALESMAN", "FARMERNAME", "ITEMQTY","ITEM","COOLIE","LUGGAGE","ADV./CASH","C%","S.C","CUSTOMERNAME","QTY","RATE","UNIT","AMOUNT","NETAMT"
     };
 
 
