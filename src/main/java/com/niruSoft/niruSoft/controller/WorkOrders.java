@@ -4,22 +4,31 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import com.itextpdf.io.font.PdfEncodings;
+
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
 
+
+import com.itextpdf.kernel.events.PdfDocumentEvent;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
+import com.itextpdf.kernel.geom.Rectangle;
 import com.itextpdf.kernel.pdf.PdfDocument;
 
+import com.itextpdf.kernel.pdf.PdfPage;
 import com.itextpdf.kernel.pdf.PdfWriter;
+import com.itextpdf.kernel.pdf.action.PdfAction;
 import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.borders.DottedBorder;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.*;
 
+import com.itextpdf.layout.layout.LayoutArea;
+import com.itextpdf.layout.layout.LayoutContext;
+import com.itextpdf.layout.layout.LayoutResult;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
@@ -28,11 +37,13 @@ import com.niruSoft.niruSoft.model.PDFData;
 import com.niruSoft.niruSoft.service.GenerateBillService;
 import com.niruSoft.niruSoft.utils.ExcelValidator;
 
+import com.niruSoft.niruSoft.utils.PageNumberEventHandler;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.InputStreamResource;
+import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -47,6 +58,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
+
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -59,7 +71,7 @@ import com.itextpdf.kernel.colors.Color;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.layout.element.Table;
 
-import static com.itextpdf.styledxmlparser.css.CommonCssConstants.FONT;
+
 import static com.niruSoft.niruSoft.utils.CommonUtils.formatDate;
 
 
@@ -159,8 +171,6 @@ public class WorkOrders {
         JsonNode coolieNode = jsonNode.get("Coolie");
         JsonNode LuggageNode = jsonNode.get("Luggage");
         JsonNode SCNode = jsonNode.get("S.C");
-//        JsonNode TOTALNode = subObjectData.get("TOTAL");
-//        JsonNode EXPNode = subObjectData.get("EXP");
         JsonNode AmountNode = jsonNode.get("Amount");
         JsonNode AdvanceNode = jsonNode.get("Adv./Cash");
         int Cooliesum = 0;
@@ -209,17 +219,16 @@ public class WorkOrders {
             }
         }
 
-//        System.out.println(Cooliesum);
         String coolieSumAsString = String.valueOf(Cooliesum);
         String LuggagesumAsString = String.valueOf(Luggagesum);
         String SCsumAsString = String.valueOf(SCsum);
         String AmountsumAsString = String.valueOf(Amountsum);
         String AdvancesumAsString = String.valueOf(AdvanceSum);
-        double expToal = Cooliesum + Luggagesum + SCsum + AdvanceSum;
+        int expToal = Cooliesum + Luggagesum + SCsum + AdvanceSum;
         String expToalAsString = String.valueOf(expToal);
 
 
-        double total = Amountsum - expToal;
+        int total = Amountsum - expToal;
         String totalAsString = String.valueOf(total);
 
         List<Map<String, String>> bagsumDetailsList = new ArrayList<>();
@@ -289,12 +298,23 @@ public class WorkOrders {
             e.printStackTrace();
         }
 
+        int kgsumNodeRowCount = calculateKgsumNodeRowCount(kgsumNode);
+
+        int minNumberOfRows = 10;
+        int bagsumDetailsRowCount = bagsumDetailsList.size();
+        int totalRowCount = bagsumDetailsRowCount + kgsumNodeRowCount;
+        int emptyRowsNeeded = Math.max(minNumberOfRows - totalRowCount, 0);
+
 
         try {
             return CompletableFuture.supplyAsync(() -> {
                 try (ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream(); PdfWriter pdfWriter = new PdfWriter(pdfOutputStream); PdfDocument pdfDocument = new PdfDocument(pdfWriter)) {
+                    pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, new PageNumberEventHandler());
                     PageSize a5PageSize = new PageSize(PageSize.A5);
                     Document document = new Document(pdfDocument, a5PageSize);
+                    document.setMargins(2, 20, 2, 20);
+//                    document.setFontFamily()
+
 //                    pdfDocument.getDocumentInfo().setTitle("Empty PDF");
                     ClassPathResource imageResource = new ClassPathResource("Image/SKTRADER.jpg");
                     ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
@@ -309,37 +329,35 @@ public class WorkOrders {
                     image.setFixedPosition(leftMargin, pdfDocument.getDefaultPageSize().getTop() - imageHeight - topMargin);
                     document.add(image);
 
-                    Paragraph nameAndDate = new Paragraph();
-                    nameAndDate.setMarginTop(imageHeight);
-
-                    Text msText = new Text("M/s : ").setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
-                    Text farmerNameText = new Text(farmerName).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
+                    Paragraph dateParagraph = new Paragraph();
                     Text dateText = new Text("Date : ");
                     Text dateValueText = new Text(date);
+                    dateParagraph.add(dateText);
+                    dateParagraph.add(dateValueText);
+                    dateParagraph.setMarginTop(imageHeight + 27);
+                    dateParagraph.setTextAlignment(TextAlignment.RIGHT);
+                    dateParagraph.setMarginRight(25);
 
+                    Paragraph msParagraph = new Paragraph();
+                    Text msText = new Text("M/s :         ").setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
+                    Text farmerNameText = new Text(farmerName).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
+                    msParagraph.add(msText);
+                    msParagraph.add(farmerNameText);
+                    msParagraph.setMarginTop(-20);
+                    msParagraph.setMarginLeft(15);
 
-                    nameAndDate.add(msText);
-                    nameAndDate.add(farmerNameText);
-                    nameAndDate.add(new Tab());
-                    nameAndDate.add(new Tab());
-                    nameAndDate.add(new Tab());
-                    nameAndDate.add(dateText);
-                    nameAndDate.add(dateValueText);
-                    document.add(nameAndDate);
-
+                    document.add(dateParagraph);
+                    document.add(msParagraph);
                     Paragraph particulars = new Paragraph();
-                    Text msTextP = new Text("Particulars : ").setFont(PdfFontFactory.createFont(StandardFonts.HELVETICA_BOLD));
+                    Text msTextP = new Text("Particulars : ").setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
                     Text farmerNameTextP = new Text(itemsText.toString());
+                    farmerNameTextP.setFontSize(10);
+                    particulars.setMarginTop(-4);
+                    particulars.setMarginLeft(5);
+                    particulars.setMarginBottom(20);
                     particulars.add(msTextP);
                     particulars.add(farmerNameTextP);
                     document.add(particulars);
-
-                    int minNumberOfRows = 9;
-                    int bagsumDetailsRowCount = bagsumDetailsList.size();
-                    int kgsumNodeRowCount = calculateKgsumNodeRowCount(kgsumNode); // Implement a function to calculate rows from kgsumNode
-                    int totalRowCount = bagsumDetailsRowCount + kgsumNodeRowCount;
-                    int emptyRowsNeeded = Math.max(minNumberOfRows - totalRowCount, 0);
-
 
                     Color whiteColor = new DeviceRgb(255, 255, 255);
                     Color blackColor = new DeviceRgb(0, 0, 0);
@@ -382,20 +400,20 @@ public class WorkOrders {
 
                         Cell slNoCell = new Cell().add(new Paragraph(String.format("%-2d", serialNumber)));
                         slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-//                        slNoCell.setBorderBottom(null);
 
                         Cell briefCell = new Cell().add(new Paragraph(brief));
                         briefCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
                         Cell rateCell = new Cell().add(new Paragraph("0".equals(rate) ? rateString : rate));
                         rateCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-                        rateCell.setTextAlignment(TextAlignment.CENTER);
-//                        rateCell.setBorderBottom(null);
+                        rateCell.setTextAlignment(TextAlignment.RIGHT);
+
 
                         Cell amountCell = new Cell().add(new Paragraph(amount));
                         amountCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-                        amountCell.setTextAlignment(TextAlignment.CENTER);
-//                        amountCell.setBorderBottom(null);
+                        amountCell.setFontColor(DeviceRgb.BLUE);
+                        amountCell.setTextAlignment(TextAlignment.RIGHT);
+
 
                         dataTable.addCell(slNoCell);
                         dataTable.addCell(briefCell);
@@ -428,7 +446,7 @@ public class WorkOrders {
                                 Cell briefCell = new Cell();
                                 String str = "";
                                 for (int i = row * 4; i < (row + 1) * 4 && i < briefValues.size(); i++) {
-                                    str += briefValues.get(i) + " ";
+                                    str += briefValues.get(i) + " " + " " + " " + " " + " " + " " + " " + " " + " " + " " + " ";
                                 }
                                 briefCell.add(new Paragraph(str));
                                 briefCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
@@ -436,7 +454,7 @@ public class WorkOrders {
                                 // Create a cell for the Rate with a white border
                                 Cell rateCell = new Cell();
                                 String rateValue = "0".equals(rateKey) ? String.join(" ", briefValues) : rateKey;
-                                rateCell.add(new Paragraph(rateValue).setTextAlignment(TextAlignment.CENTER));
+                                rateCell.add(new Paragraph(rateValue).setTextAlignment(TextAlignment.RIGHT));
                                 rateCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
                                 // Create a cell for the Amount with a white border
@@ -451,7 +469,9 @@ public class WorkOrders {
                                     );
                                 }
                                 amountCell.add(new Paragraph(String.valueOf(totalAmountByRate * Integer.parseInt(rateKey)))
-                                        .setTextAlignment(TextAlignment.CENTER));
+                                                .setTextAlignment(TextAlignment.RIGHT))
+                                        .setFontColor(DeviceRgb.BLUE);
+                                ;
                                 amountCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
                                 dataTable.addCell(slNoCell);
@@ -478,16 +498,31 @@ public class WorkOrders {
                     line.setMarginTop(-2f);
                     document.add(line);
 
+                    LayoutResult result = dataTable.createRendererSubTree().setParent(document.getRenderer()).layout(new LayoutContext(new LayoutArea(1, a5PageSize))); // Layout the table
+                    Rectangle tableBoundingBox = result.getOccupiedArea().getBBox();
+                    float heightFromStartToLastDataRow = a5PageSize.getHeight() - tableBoundingBox.getBottom();
+                    System.out.println(heightFromStartToLastDataRow);
 
-                    // Define the border color and width
+                    if (heightFromStartToLastDataRow > 240.82153f) {
+                        int currentPageNumber = pdfDocument.getPageNumber(document.getPdfDocument().getLastPage());
+                        if (currentPageNumber == 1) {
+                            // Content won't fit on the first page, so start a new page
+                            document.add(new AreaBreak());
+                        }
+                    }
+
+
                     Color borderColor = new DeviceRgb(0, 0, 0); // Replace with your desired color
                     float borderWidth = 1f;
 
+
+
                     Div contentDiv = new Div()
-                            .setMarginTop(5)
-                            .setBorder(new SolidBorder(borderColor, borderWidth));
+                            .setMarginTop(5);
 
                     Table expTable = new Table(UnitValue.createPercentArray(new float[]{70, 30}));
+                    expTable.setFontSize(10);
+                    expTable.setPadding(5);
 
                     Cell headerCell = new Cell().add(new Paragraph("    EXP").setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE));
@@ -497,6 +532,7 @@ public class WorkOrders {
                     headerCell = new Cell().add(new Paragraph().setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE));
                     expTable.addCell(headerCell);
+
                     expTable.addCell(new Cell().add(new Paragraph("Adv./cash").setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE)));
                     expTable.addCell(new Cell().add(new Paragraph(AdvancesumAsString).setTextAlignment(TextAlignment.CENTER)
@@ -516,26 +552,29 @@ public class WorkOrders {
                     expTable.addCell(new Cell().add(new Paragraph(SCsumAsString).setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE)));
                     Paragraph tosta = new Paragraph()
-                            .add(new Text(expToalAsString)).add("\n");
+                            .add(new Text(expToalAsString)).add("\n")
+                            .setMarginLeft(60)
+                            .setFontSize(10);
+
+
                     contentDiv.add(expTable);
                     contentDiv.add(tosta);
 
                     Paragraph valuesParagraphs2 = new Paragraph()
-                            .setFontSize(14)
                             .setMarginLeft(90)
-                            .setFontSize(14)
+                            .setFontSize(10)
                             .setMarginTop(-90)
-                            .add(new Text("Amount- "))
-                            .add(new Text(AmountsumAsString)).add("\n")
-                            .add(new Text("EXP- "))
-                            .add(new Text(expToalAsString)).add("\n")
+                            .add(new Text(AmountsumAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).add("\n")
+                            .add(new Text(expToalAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).add("\n")
                             .add(new Text("TOTAL - "))
-                            .add(new Text(totalAsString)).add("\n")
+                            .add(new Text(totalAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD))
+                            .add("\n")
                             .setTextAlignment(TextAlignment.RIGHT);
                     contentDiv.add(valuesParagraphs2);
 
-
                     document.add(contentDiv);
+
+
                     document.close();
 
                     String pdfFileName = farmerName + " - " + date + ".pdf";
