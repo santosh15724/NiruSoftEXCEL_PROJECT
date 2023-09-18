@@ -284,9 +284,15 @@ public class WorkOrders {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        int sum1 = calculateSumFromJsonBAG(jsonData);
+        int sum2 = calculateSumFromJsonKG(jsonData);
+
+        int TotalSumKgBAg = sum1 + sum2;
+        String strTotalSumKgBAg = df.format(TotalSumKgBAg);
+//        System.out.println(TotalSumKgBAg);
 
         int kgsumNodeRowCount = calculateKgsumNodeRowCount(kgsumNode);
-        int minNumberOfRows = 10;
+        int minNumberOfRows = 9;
         int bagsumDetailsRowCount = bagsumDetailsList.size();
         int totalRowCount = bagsumDetailsRowCount + kgsumNodeRowCount;
         int emptyRowsNeeded = Math.max(minNumberOfRows - totalRowCount, 0);
@@ -320,7 +326,7 @@ public class WorkOrders {
                     Text dateValueText = new Text(date);
                     dateParagraph.add(dateText);
                     dateParagraph.add(dateValueText);
-                    dateParagraph.setMarginTop(imageHeight );
+                    dateParagraph.setMarginTop(imageHeight);
                     dateParagraph.setTextAlignment(TextAlignment.RIGHT);
                     dateParagraph.setMarginRight(25);
 
@@ -340,7 +346,7 @@ public class WorkOrders {
                     farmerNameTextP.setFontSize(10);
                     particulars.setMarginTop(-2);
                     particulars.setMarginLeft(5);
-                    particulars.setMarginBottom(15);
+                    particulars.setMarginBottom(6);
                     particulars.add(msTextP);
                     particulars.add(farmerNameTextP);
                     document.add(particulars);
@@ -497,10 +503,14 @@ public class WorkOrders {
                         }
                     }
 
+                    Paragraph paragraphTotla = new Paragraph(strTotalSumKgBAg + "  (Kg/Bags)")
+                            .setMarginTop(5)
+                            .setMarginLeft(140);
+                    document.add(paragraphTotla);
 
                     Table expTable = new Table(new float[]{70, 50});
                     expTable.setFontSize(9);
-                    expTable.setMarginTop(17);
+                    expTable.setMarginTop(0);
 
                     PdfFont boldFont = PdfFontFactory.createFont(StandardFonts.TIMES_BOLD);
 
@@ -537,14 +547,12 @@ public class WorkOrders {
                             .add(new Text(expToalAsString)).add("\n")
                             .setMarginLeft(85)
                             .setFontSize(9);
-
-
                     document.add(expTable);
                     document.add(tosta);
 
                     Paragraph amountParagraph = new Paragraph()
                             .setFontSize(13)
-                            .setMarginTop(-90)
+                            .setMarginTop(-95)
                             .setMarginRight(5)
                             .setPaddingBottom(2)
                             .add(new Text(AmountsumAsString))
@@ -614,6 +622,78 @@ public class WorkOrders {
         }
 
         return rowCount;
+    }
+
+    public static int calculateSumFromJsonBAG(String jsonString) {
+        int sum = 0;
+
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+            // Get the "BAGSUM" object
+            JsonNode bagsumNode = jsonNode.get("BAGSUM");
+
+            // Iterate through the keys in the "BAGSUM" object
+            for (JsonNode keyNode : bagsumNode) {
+                // Check if the key is "0" and skip it
+                if (keyNode.isTextual() && keyNode.asText().equals("0")) {
+                    continue;
+                }
+
+                // Iterate through the values (arrays) for each key
+                for (JsonNode valueNode : keyNode) {
+                    // Try to convert the value to an integer, or treat it as zero if it's not numeric
+                    int value = 0; // Default to zero
+                    try {
+                        value = Integer.parseInt(valueNode.asText());
+                    } catch (NumberFormatException ex) {
+                        // Ignore non-numeric values
+                    }
+                    sum += value;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return sum;
+    }
+
+    public static int calculateSumFromJsonKG(String jsonString) {
+        int sum = 0;
+
+        try {
+            ObjectMapper objectMapper = new ObjectMapper();
+            JsonNode jsonNode = objectMapper.readTree(jsonString);
+
+            // Get the "BAGSUM" object
+            JsonNode bagsumNode = jsonNode.get("KGSUM");
+
+            // Iterate through the keys in the "BAGSUM" object
+            for (JsonNode keyNode : bagsumNode) {
+                // Check if the key is "0" and skip it
+                if (keyNode.isTextual() && keyNode.asText().equals("0")) {
+                    continue;
+                }
+
+                // Iterate through the values (arrays) for each key
+                for (JsonNode valueNode : keyNode) {
+                    // Try to convert the value to an integer, or treat it as zero if it's not numeric
+                    int value = 0; // Default to zero
+                    try {
+                        value = Integer.parseInt(valueNode.asText());
+                    } catch (NumberFormatException ex) {
+                        // Ignore non-numeric values
+                    }
+                    sum += value;
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        return sum;
     }
 
 
