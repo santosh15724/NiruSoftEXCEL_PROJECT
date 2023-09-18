@@ -10,6 +10,7 @@ import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
 
 
+import com.itextpdf.kernel.events.Event;
 import com.itextpdf.kernel.events.PdfDocumentEvent;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
@@ -20,6 +21,7 @@ import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfPage;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.kernel.pdf.action.PdfAction;
+import com.itextpdf.kernel.pdf.canvas.draw.DottedLine;
 import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
 import com.itextpdf.layout.borders.DottedBorder;
@@ -59,6 +61,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
 
+import java.text.DecimalFormat;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
@@ -70,6 +73,7 @@ import java.util.zip.ZipOutputStream;
 import com.itextpdf.kernel.colors.Color;
 import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.layout.element.Table;
+import com.itextpdf.kernel.events.IEventHandler;
 
 
 import static com.niruSoft.niruSoft.utils.CommonUtils.formatDate;
@@ -218,18 +222,21 @@ public class WorkOrders {
                 // Ignore non-integer values
             }
         }
+        DecimalFormat df = new DecimalFormat("#,###");
 
-        String coolieSumAsString = String.valueOf(Cooliesum);
-        String LuggagesumAsString = String.valueOf(Luggagesum);
-        String SCsumAsString = String.valueOf(SCsum);
-        String AmountsumAsString = String.valueOf(Amountsum);
-        String AdvancesumAsString = String.valueOf(AdvanceSum);
+        String coolieSumAsString = df.format(Cooliesum);
+        String LuggagesumAsString = df.format(Luggagesum);
+        String SCsumAsString = df.format(SCsum);
+        String AmountsumAsString = df.format(Amountsum);
+
+        String AdvancesumAsString = df.format(AdvanceSum);
+
         int expToal = Cooliesum + Luggagesum + SCsum + AdvanceSum;
-        String expToalAsString = String.valueOf(expToal);
+        String expToalAsString = df.format(expToal);
 
 
         int total = Amountsum - expToal;
-        String totalAsString = String.valueOf(total);
+        String totalAsString = df.format(total);
 
         List<Map<String, String>> bagsumDetailsList = new ArrayList<>();
         try {
@@ -299,7 +306,6 @@ public class WorkOrders {
         }
 
         int kgsumNodeRowCount = calculateKgsumNodeRowCount(kgsumNode);
-
         int minNumberOfRows = 10;
         int bagsumDetailsRowCount = bagsumDetailsList.size();
         int totalRowCount = bagsumDetailsRowCount + kgsumNodeRowCount;
@@ -313,9 +319,8 @@ public class WorkOrders {
                     PageSize a5PageSize = new PageSize(PageSize.A5);
                     Document document = new Document(pdfDocument, a5PageSize);
                     document.setMargins(2, 20, 2, 20);
-//                    document.setFontFamily()
 
-//                    pdfDocument.getDocumentInfo().setTitle("Empty PDF");
+
                     ClassPathResource imageResource = new ClassPathResource("Image/SKTRADER.jpg");
                     ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
                     Image image = new Image(imageData);
@@ -408,8 +413,8 @@ public class WorkOrders {
                         rateCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
                         rateCell.setTextAlignment(TextAlignment.RIGHT);
 
-
-                        Cell amountCell = new Cell().add(new Paragraph(amount));
+                        String formattedAmount = df.format(new BigDecimal(amount));
+                        Cell amountCell = new Cell().add(new Paragraph(formattedAmount));
                         amountCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
                         amountCell.setFontColor(DeviceRgb.BLUE);
                         amountCell.setTextAlignment(TextAlignment.RIGHT);
@@ -468,10 +473,11 @@ public class WorkOrders {
                                                     .sum()
                                     );
                                 }
-                                amountCell.add(new Paragraph(String.valueOf(totalAmountByRate * Integer.parseInt(rateKey)))
+                                String formattedTotalAmount = df.format(totalAmountByRate * Integer.parseInt(rateKey));
+                                amountCell.add(new Paragraph(formattedTotalAmount)
                                                 .setTextAlignment(TextAlignment.RIGHT))
                                         .setFontColor(DeviceRgb.BLUE);
-                                ;
+
                                 amountCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
                                 dataTable.addCell(slNoCell);
@@ -506,23 +512,21 @@ public class WorkOrders {
                     if (heightFromStartToLastDataRow > 240.82153f) {
                         int currentPageNumber = pdfDocument.getPageNumber(document.getPdfDocument().getLastPage());
                         if (currentPageNumber == 1) {
-                            // Content won't fit on the first page, so start a new page
                             document.add(new AreaBreak());
+                        }else{
+                            document.add(new AreaBreak()); // Add an area break to move to the next page
+                            document.setMargins(20, 20, 2, 20);
                         }
                     }
 
 
-                    Color borderColor = new DeviceRgb(0, 0, 0); // Replace with your desired color
-                    float borderWidth = 1f;
+                    Table expTable = new Table(new float[]{70, 50});
+                    expTable.setFontSize(9);
+                    expTable.setMarginTop(17);
 
+                    PdfFont boldFont = PdfFontFactory.createFont(StandardFonts.TIMES_BOLD);
 
-
-                    Div contentDiv = new Div()
-                            .setMarginTop(5);
-
-                    Table expTable = new Table(UnitValue.createPercentArray(new float[]{70, 30}));
-                    expTable.setFontSize(10);
-                    expTable.setPadding(5);
+                    expTable.setFont(boldFont);
 
                     Cell headerCell = new Cell().add(new Paragraph("    EXP").setTextAlignment(TextAlignment.CENTER)
                             .setVerticalAlignment(VerticalAlignment.MIDDLE));
@@ -553,26 +557,47 @@ public class WorkOrders {
                             .setVerticalAlignment(VerticalAlignment.MIDDLE)));
                     Paragraph tosta = new Paragraph()
                             .add(new Text(expToalAsString)).add("\n")
-                            .setMarginLeft(60)
-                            .setFontSize(10);
+                            .setMarginLeft(85)
+                            .setFontSize(9);
 
 
-                    contentDiv.add(expTable);
-                    contentDiv.add(tosta);
+                    document.add(expTable);
+                    document.add(tosta);
 
-                    Paragraph valuesParagraphs2 = new Paragraph()
-                            .setMarginLeft(90)
-                            .setFontSize(10)
+                    Paragraph amountParagraph = new Paragraph()
+                            .setFontSize(13)
                             .setMarginTop(-90)
-                            .add(new Text(AmountsumAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).add("\n")
-                            .add(new Text(expToalAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).add("\n")
-                            .add(new Text("TOTAL - "))
-                            .add(new Text(totalAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD))
+                            .setMarginRight(5)
+                            .add(new Text(AmountsumAsString))
+                            .setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD))
                             .add("\n")
                             .setTextAlignment(TextAlignment.RIGHT);
-                    contentDiv.add(valuesParagraphs2);
 
-                    document.add(contentDiv);
+                    Paragraph expTotalParagraph = new Paragraph()
+                            .setFontSize(12)
+                            .setMarginTop(-4)
+                            .setMarginRight(5)
+                            .add(new Text(expToalAsString))
+                            .setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD))
+                            .add("\n")
+                            .setTextAlignment(TextAlignment.RIGHT);
+
+                    Color brownColor = new DeviceRgb(139, 69, 19);
+
+                    Paragraph totalParagraph = new Paragraph()
+                            .setFontSize(16)
+                            .add("Total:     ")
+                            .setMarginRight(5)
+                            .add(new Text(totalAsString))
+                            .setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD))
+                            .setFontColor(brownColor)
+                            .add("\n")
+                            .setTextAlignment(TextAlignment.RIGHT);
+
+                    amountParagraph = amountParagraph.setUnderline();
+                    document.add(amountParagraph);
+                    document.add(expTotalParagraph);
+                    document.add(totalParagraph);
 
 
                     document.close();
@@ -589,6 +614,7 @@ public class WorkOrders {
             throw new RuntimeException("Failed to generate PDF asynchronously", e);
         }
     }
+
 
     private static int calculateKgsumNodeRowCount(JsonNode kgsumNode) {
         int rowCount = 0;

@@ -25,7 +25,7 @@ public class PageNumberEventHandler implements IEventHandler {
         PdfCanvas canvas = new PdfCanvas(page.newContentStreamBefore(), page.getResources(), pdfDoc);
 
         float x = page.getPageSize().getWidth() - 36;
-        float y = 25;
+        float y = 10;
         float fontSize = 10;
 
         new Canvas(canvas, page.getPageSize())
