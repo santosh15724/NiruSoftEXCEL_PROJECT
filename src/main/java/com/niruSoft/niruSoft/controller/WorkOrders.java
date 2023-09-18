@@ -292,7 +292,7 @@ public class WorkOrders {
 //        System.out.println(TotalSumKgBAg);
 
         int kgsumNodeRowCount = calculateKgsumNodeRowCount(kgsumNode);
-        int minNumberOfRows = 9;
+        int minNumberOfRows = 10;
         int bagsumDetailsRowCount = bagsumDetailsList.size();
         int totalRowCount = bagsumDetailsRowCount + kgsumNodeRowCount;
         int emptyRowsNeeded = Math.max(minNumberOfRows - totalRowCount, 0);
@@ -552,7 +552,7 @@ public class WorkOrders {
 
                     Paragraph amountParagraph = new Paragraph()
                             .setFontSize(13)
-                            .setMarginTop(-95)
+                            .setMarginTop(-100)
                             .setMarginRight(5)
                             .setPaddingBottom(2)
                             .add(new Text(AmountsumAsString))
