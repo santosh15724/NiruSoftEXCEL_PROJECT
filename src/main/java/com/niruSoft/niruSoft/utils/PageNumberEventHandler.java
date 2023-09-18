@@ -10,7 +10,7 @@ import com.itextpdf.layout.Canvas;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Text;
 import com.itextpdf.layout.properties.TextAlignment;
-//import com.itextpdf.layout.property.TextAlignment;
+
 
 public class PageNumberEventHandler implements IEventHandler {
     @Override
@@ -24,7 +24,7 @@ public class PageNumberEventHandler implements IEventHandler {
 
         PdfCanvas canvas = new PdfCanvas(page.newContentStreamBefore(), page.getResources(), pdfDoc);
 
-        float x = page.getPageSize().getWidth() - 36;
+        float x = page.getPageSize().getWidth() - 40;
         float y = 10;
         float fontSize = 10;
 

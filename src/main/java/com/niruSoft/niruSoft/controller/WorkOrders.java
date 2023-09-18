@@ -3,49 +3,36 @@ package com.niruSoft.niruSoft.controller;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
-
-
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
-
-
-import com.itextpdf.kernel.events.Event;
+import com.itextpdf.kernel.colors.Color;
+import com.itextpdf.kernel.colors.DeviceRgb;
 import com.itextpdf.kernel.events.PdfDocumentEvent;
 import com.itextpdf.kernel.font.PdfFont;
 import com.itextpdf.kernel.font.PdfFontFactory;
 import com.itextpdf.kernel.geom.PageSize;
 import com.itextpdf.kernel.geom.Rectangle;
 import com.itextpdf.kernel.pdf.PdfDocument;
-
-import com.itextpdf.kernel.pdf.PdfPage;
 import com.itextpdf.kernel.pdf.PdfWriter;
-import com.itextpdf.kernel.pdf.action.PdfAction;
-import com.itextpdf.kernel.pdf.canvas.draw.DottedLine;
 import com.itextpdf.kernel.pdf.canvas.draw.SolidLine;
 import com.itextpdf.layout.Document;
-import com.itextpdf.layout.borders.DottedBorder;
 import com.itextpdf.layout.borders.SolidBorder;
 import com.itextpdf.layout.element.*;
-
 import com.itextpdf.layout.layout.LayoutArea;
 import com.itextpdf.layout.layout.LayoutContext;
 import com.itextpdf.layout.layout.LayoutResult;
 import com.itextpdf.layout.properties.TextAlignment;
-import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
-
 import com.niruSoft.niruSoft.model.PDFData;
 import com.niruSoft.niruSoft.service.GenerateBillService;
 import com.niruSoft.niruSoft.utils.ExcelValidator;
-
 import com.niruSoft.niruSoft.utils.PageNumberEventHandler;
 import org.json.JSONArray;
 import org.json.JSONObject;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.InputStreamResource;
-import org.springframework.core.io.Resource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -60,7 +47,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.math.BigDecimal;
-
 import java.text.DecimalFormat;
 import java.util.List;
 import java.util.*;
@@ -69,12 +55,6 @@ import java.util.concurrent.ExecutionException;
 import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
-
-import com.itextpdf.kernel.colors.Color;
-import com.itextpdf.kernel.colors.DeviceRgb;
-import com.itextpdf.layout.element.Table;
-import com.itextpdf.kernel.events.IEventHandler;
-
 
 import static com.niruSoft.niruSoft.utils.CommonUtils.formatDate;
 
@@ -153,7 +133,7 @@ public class WorkOrders {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode jsonNode = objectMapper.readTree(jsonData);
         JsonNode kgsumNode = jsonNode.get("KGSUM");
-        System.out.println(jsonNode);
+//        System.out.println(jsonNode);
 
 
         JsonNode itemsNode = jsonNode.get("ITEM");
@@ -164,7 +144,7 @@ public class WorkOrders {
                 String itemValue = item.asText();
                 if (!itemValue.isEmpty()) {
                     if (!firstItem) {
-                        itemsText.append(", "); // Add a comma and space for subsequent items
+                        itemsText.append(",  "); // Add a comma and space for subsequent items
                     }
                     itemsText.append(itemValue);
                     firstItem = false;
@@ -316,10 +296,11 @@ public class WorkOrders {
             return CompletableFuture.supplyAsync(() -> {
                 try (ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream(); PdfWriter pdfWriter = new PdfWriter(pdfOutputStream); PdfDocument pdfDocument = new PdfDocument(pdfWriter)) {
                     pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, new PageNumberEventHandler());
+                    PdfFont timesNewRomanFont = PdfFontFactory.createFont(StandardFonts.TIMES_ROMAN);
                     PageSize a5PageSize = new PageSize(PageSize.A5);
                     Document document = new Document(pdfDocument, a5PageSize);
                     document.setMargins(20, 20, 20, 20);
-
+                    document.setFont(timesNewRomanFont);
 
                     ClassPathResource imageResource = new ClassPathResource("Image/SKTRADER.jpg");
                     ImageData imageData = ImageDataFactory.create(imageResource.getFile().getPath());
@@ -507,7 +488,7 @@ public class WorkOrders {
                     LayoutResult result = dataTable.createRendererSubTree().setParent(document.getRenderer()).layout(new LayoutContext(new LayoutArea(1, a5PageSize))); // Layout the table
                     Rectangle tableBoundingBox = result.getOccupiedArea().getBBox();
                     float heightFromStartToLastDataRow = a5PageSize.getHeight() - tableBoundingBox.getBottom();
-                    System.out.println(heightFromStartToLastDataRow);
+//                    System.out.println(heightFromStartToLastDataRow);
 
                     if (heightFromStartToLastDataRow > 240.82153f) {
                         int currentPageNumber = pdfDocument.getPageNumber(document.getPdfDocument().getLastPage());
