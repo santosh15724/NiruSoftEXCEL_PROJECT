@@ -318,7 +318,7 @@ public class WorkOrders {
                     pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, new PageNumberEventHandler());
                     PageSize a5PageSize = new PageSize(PageSize.A5);
                     Document document = new Document(pdfDocument, a5PageSize);
-                    document.setMargins(2, 20, 2, 20);
+                    document.setMargins(20, 20, 20, 20);
 
 
                     ClassPathResource imageResource = new ClassPathResource("Image/SKTRADER.jpg");
@@ -339,7 +339,7 @@ public class WorkOrders {
                     Text dateValueText = new Text(date);
                     dateParagraph.add(dateText);
                     dateParagraph.add(dateValueText);
-                    dateParagraph.setMarginTop(imageHeight + 27);
+                    dateParagraph.setMarginTop(imageHeight );
                     dateParagraph.setTextAlignment(TextAlignment.RIGHT);
                     dateParagraph.setMarginRight(25);
 
@@ -348,7 +348,7 @@ public class WorkOrders {
                     Text farmerNameText = new Text(farmerName).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
                     msParagraph.add(msText);
                     msParagraph.add(farmerNameText);
-                    msParagraph.setMarginTop(-20);
+                    msParagraph.setMarginTop(-24);
                     msParagraph.setMarginLeft(15);
 
                     document.add(dateParagraph);
@@ -357,9 +357,9 @@ public class WorkOrders {
                     Text msTextP = new Text("Particulars : ").setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD));
                     Text farmerNameTextP = new Text(itemsText.toString());
                     farmerNameTextP.setFontSize(10);
-                    particulars.setMarginTop(-4);
+                    particulars.setMarginTop(-2);
                     particulars.setMarginLeft(5);
-                    particulars.setMarginBottom(20);
+                    particulars.setMarginBottom(15);
                     particulars.add(msTextP);
                     particulars.add(farmerNameTextP);
                     document.add(particulars);
@@ -513,9 +513,6 @@ public class WorkOrders {
                         int currentPageNumber = pdfDocument.getPageNumber(document.getPdfDocument().getLastPage());
                         if (currentPageNumber == 1) {
                             document.add(new AreaBreak());
-                        }else{
-                            document.add(new AreaBreak()); // Add an area break to move to the next page
-                            document.setMargins(20, 20, 2, 20);
                         }
                     }
 
@@ -568,6 +565,7 @@ public class WorkOrders {
                             .setFontSize(13)
                             .setMarginTop(-90)
                             .setMarginRight(5)
+                            .setPaddingBottom(2)
                             .add(new Text(AmountsumAsString))
                             .setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD))
                             .add("\n")
@@ -575,13 +573,12 @@ public class WorkOrders {
 
                     Paragraph expTotalParagraph = new Paragraph()
                             .setFontSize(12)
-                            .setMarginTop(-4)
+                            .setMarginTop(-8)
                             .setMarginRight(5)
                             .add(new Text(expToalAsString))
                             .setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD))
                             .add("\n")
                             .setTextAlignment(TextAlignment.RIGHT);
-
                     Color brownColor = new DeviceRgb(139, 69, 19);
 
                     Paragraph totalParagraph = new Paragraph()
