@@ -165,6 +165,7 @@ public class GenerateBillService implements GenerateBillImpl {
             modifiedJson.put(farmerName, farmerDataObject);
         }
 
+        System.out.print(modifiedJson);
         return modifiedJson;
     }
 
@@ -221,6 +222,7 @@ public class GenerateBillService implements GenerateBillImpl {
         }
         return "";
     }
+
 
 
 }

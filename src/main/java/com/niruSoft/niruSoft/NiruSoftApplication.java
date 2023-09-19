@@ -8,7 +8,7 @@ import org.springframework.core.task.TaskExecutor;
 import org.springframework.scheduling.annotation.EnableAsync;
 
 @SpringBootApplication
-@EnableAsync
+@EnableAsync(proxyTargetClass = true)
 public class NiruSoftApplication {
 
 	public static void main(String[] args) {
