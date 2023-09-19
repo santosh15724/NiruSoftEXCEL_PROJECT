@@ -1,8 +1,8 @@
 package com.niruSoft.niruSoft.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.itextpdf.io.font.PdfEncodings;
 import com.itextpdf.io.font.constants.StandardFonts;
 import com.itextpdf.io.image.ImageData;
 import com.itextpdf.io.image.ImageDataFactory;
@@ -29,7 +29,6 @@ import com.niruSoft.niruSoft.service.impl.PDFGenerationServiceImpl;
 import com.niruSoft.niruSoft.utils.PageNumberEventHandler;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.stereotype.Service;
 
 import java.io.ByteArrayOutputStream;
@@ -37,21 +36,27 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.text.DecimalFormat;
-import java.util.*;
 import java.util.List;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
 
 @Service
 
 public class PDFGenerationService implements PDFGenerationServiceImpl {
+
+    public static String currencySymbol = "\u20B9";
+
     @Async
     @Override
-    public CompletableFuture<PDFData> generatePDFFromJSONAsync(String jsonData, String farmerName, String date) throws JsonProcessingException {
+    public CompletableFuture<PDFData> generatePDFFromJSONAsync(String jsonData, String farmerName, String date) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode jsonNode = objectMapper.readTree(jsonData);
         JsonNode kgsumNode = jsonNode.get("KGSUM");
 //        System.out.println(jsonNode);
+
+        ClassPathResource fontResource = new ClassPathResource("fonts/arial-bold.ttf");
+        PdfFont font = PdfFontFactory.createFont(fontResource.getFile().getAbsolutePath(), PdfEncodings.IDENTITY_H);
 
 
         JsonNode itemsNode = jsonNode.get("ITEM");
@@ -299,6 +304,21 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                     dataTable.addCell(rateHeaderCell);
                     dataTable.addCell(amountHeaderCell);
 
+                    Collections.sort(bagsumDetailsList, new Comparator<Map<String, String>>() {
+                        @Override
+                        public int compare(Map<String, String> detail1, Map<String, String> detail2) {
+                            String rate1 = detail1.get("Rate");
+                            String rate2 = detail2.get("Rate");
+
+                            // Parse rates as doubles (assuming rates are numeric)
+                            double rateValue1 = Double.parseDouble(rate1);
+                            double rateValue2 = Double.parseDouble(rate2);
+
+                            // Sort in descending order
+                            return Double.compare(rateValue2, rateValue1);
+                        }
+                    });
+
                     for (Map<String, String> bagsumDetails : bagsumDetailsList) {
                         String brief = bagsumDetails.get("Brief");
                         String rate = bagsumDetails.get("Rate");
@@ -332,11 +352,29 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                         serialNumber++;
                     }
 
+                    List<Map.Entry<String, JsonNode>> sortedEntries = new ArrayList<>();
+
+// Collect and sort the entries based on the "rate" key
                     Iterator<Map.Entry<String, JsonNode>> fieldIterator = kgsumNode.fields();
                     while (fieldIterator.hasNext()) {
                         Map.Entry<String, JsonNode> entry = fieldIterator.next();
                         String rateKey = entry.getKey();
                         JsonNode arrayToCalculate = entry.getValue();
+                        if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+                            sortedEntries.add(entry);
+                        }
+                    }
+                    Collections.sort(sortedEntries, (entry1, entry2) -> {
+                        String rateKey1 = entry1.getKey();
+                        String rateKey2 = entry2.getKey();
+                        // Assuming "rateKey" is a String that needs to be sorted as a numerical value
+                        return Double.compare(Double.parseDouble(rateKey2), Double.parseDouble(rateKey1));
+                    });
+
+                    for (Map.Entry<String, JsonNode> entry : sortedEntries) {
+                        String rateKey = entry.getKey();
+                        JsonNode arrayToCalculate = entry.getValue();
+
                         if (arrayToCalculate != null && arrayToCalculate.isArray()) {
                             List<String> briefValues = new ArrayList<>();
                             for (JsonNode value : arrayToCalculate) {
@@ -387,6 +425,63 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                             }
                         }
                     }
+
+//                    JsonNode kgsumNode = jsonNode.get("KGSUM");
+//                    Iterator<Map.Entry<String, JsonNode>> fieldIterator = kgsumNode.fields();
+//                    while (fieldIterator.hasNext()) {
+//                        Map.Entry<String, JsonNode> entry = fieldIterator.next();
+//                        String rateKey = entry.getKey();
+//                        JsonNode arrayToCalculate = entry.getValue();
+//                        if (arrayToCalculate != null && arrayToCalculate.isArray()) {
+//                            List<String> briefValues = new ArrayList<>();
+//                            for (JsonNode value : arrayToCalculate) {
+//                                String stringValue = value.asText();
+//                                briefValues.add(stringValue);
+//                            }
+//                            int numRows = (int) Math.ceil(briefValues.size() / 4.0);
+//
+//                            for (int row = 0; row < numRows; row++) {
+//                                // Create a cell for SL NO with a white border
+//                                Cell slNoCell = new Cell();
+//                                slNoCell.add(new Paragraph(String.format("%-2d", serialNumber)));
+//                                slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+//
+//                                // Create a cell for the Brief with a white border
+//                                Cell briefCell = new Cell();
+//                                String str = "";
+//                                for (int i = row * 4; i < (row + 1) * 4 && i < briefValues.size(); i++) {
+//                                    str += briefValues.get(i) + " " + " " + " " + " " + " " + " " + " " + " " + " " + " " + " ";
+//                                }
+//                                briefCell.add(new Paragraph(str));
+//                                briefCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+//
+//                                // Create a cell for the Rate with a white border
+//                                Cell rateCell = new Cell();
+//                                String rateValue = "0".equals(rateKey) ? String.join(" ", briefValues) : rateKey;
+//                                rateCell.add(new Paragraph(rateValue).setTextAlignment(TextAlignment.RIGHT));
+//                                rateCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+//
+//                                // Create a cell for the Amount with a white border
+//                                Cell amountCell = new Cell();
+//                                int totalAmountByRate = 0; // Initialize as an integer
+//                                if (!"0".equals(rateKey)) {
+//                                    totalAmountByRate = (int) Math.round(briefValues.subList(row * 4, Math.min((row + 1) * 4, briefValues.size())).stream().mapToDouble(Double::parseDouble).sum());
+//                                }
+////                                String formattedTotalAmount = df.format(totalAmountByRate * Integer.parseInt(rateKey));
+//                                String formattedTotalAmount = df.format((int) Math.ceil(totalAmountByRate * Double.parseDouble(rateKey)));
+//                                amountCell.add(new Paragraph(formattedTotalAmount).setTextAlignment(TextAlignment.RIGHT)).setFontColor(DeviceRgb.BLUE);
+//
+//                                amountCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+//
+//                                dataTable.addCell(slNoCell);
+//                                dataTable.addCell(briefCell);
+//                                dataTable.addCell(rateCell);
+//                                dataTable.addCell(amountCell);
+//
+//                                serialNumber++;
+//                            }
+//                        }
+//                    }
                     // Add empty rows to dataTable
                     for (int i = 0; i < emptyRowsNeeded; i++) {
                         for (int j = 0; j < 4; j++) { // Add 4 empty cells per row
@@ -448,13 +543,26 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
                     Paragraph expTotalParagraph = new Paragraph().setFontSize(12).setMarginTop(-8).setMarginRight(5).add(new Text(expToalAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).add("\n").setTextAlignment(TextAlignment.RIGHT);
                     Color brownColor = new DeviceRgb(139, 69, 19);
-
-                    Paragraph totalParagraph = new Paragraph().setFontSize(16).add("Total:     ").setMarginRight(5).add(new Text(totalAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).setFontColor(brownColor).add("\n").setTextAlignment(TextAlignment.RIGHT);
+//                    String currencySymbol = "\u20B9";
+                    Paragraph totalParagraph = new Paragraph().setFontSize(16).add("Total:     ").setMarginRight(5)
+                            .add(new Text(currencySymbol))
+                            .add(new Text(totalAsString)).setFont(font).setFontColor(brownColor).add("\n").setTextAlignment(TextAlignment.RIGHT);
 
                     amountParagraph = amountParagraph.setUnderline();
                     document.add(amountParagraph);
                     document.add(expTotalParagraph);
                     document.add(totalParagraph);
+
+
+
+//                    // Add a paragraph with the Indian currency symbol
+//                    Paragraph paragraph = new Paragraph(currencySymbol)
+//                            .setFont(font)
+//                            .setFontSize(12)
+//                            .setTextAlignment(TextAlignment.CENTER);
+//
+//                    // Add the paragraph to the document
+//                    document.add(paragraph);
 
 
                     document.close();
