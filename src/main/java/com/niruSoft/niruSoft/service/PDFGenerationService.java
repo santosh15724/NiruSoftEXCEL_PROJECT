@@ -354,7 +354,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
                     List<Map.Entry<String, JsonNode>> sortedEntries = new ArrayList<>();
 
-// Collect and sort the entries based on the "rate" key
+                    // Collect and sort the entries based on the "rate" key
                     Iterator<Map.Entry<String, JsonNode>> fieldIterator = kgsumNode.fields();
                     while (fieldIterator.hasNext()) {
                         Map.Entry<String, JsonNode> entry = fieldIterator.next();
@@ -544,15 +544,12 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                     Paragraph expTotalParagraph = new Paragraph().setFontSize(12).setMarginTop(-8).setMarginRight(5).add(new Text(expToalAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).add("\n").setTextAlignment(TextAlignment.RIGHT);
                     Color brownColor = new DeviceRgb(139, 69, 19);
 //                    String currencySymbol = "\u20B9";
-                    Paragraph totalParagraph = new Paragraph().setFontSize(16).add("Total:     ").setMarginRight(5)
-                            .add(new Text(currencySymbol))
-                            .add(new Text(totalAsString)).setFont(font).setFontColor(brownColor).add("\n").setTextAlignment(TextAlignment.RIGHT);
+                    Paragraph totalParagraph = new Paragraph().setFontSize(16).add("Total:     ").setMarginRight(5).add(new Text(currencySymbol)).add(new Text(totalAsString)).setFont(font).setFontColor(brownColor).add("\n").setTextAlignment(TextAlignment.RIGHT);
 
                     amountParagraph = amountParagraph.setUnderline();
                     document.add(amountParagraph);
                     document.add(expTotalParagraph);
                     document.add(totalParagraph);
-
 
 
 //                    // Add a paragraph with the Indian currency symbol
