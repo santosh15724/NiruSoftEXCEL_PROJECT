@@ -61,19 +61,27 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
         JsonNode itemsNode = jsonNode.get("ITEM");
         StringBuilder itemsText = new StringBuilder();
+        Set<String> uniqueItems = new HashSet<>(); // To store unique items
+
         if (itemsNode != null && itemsNode.isArray()) {
             boolean firstItem = true; // To keep track of the first item
             for (JsonNode item : itemsNode) {
                 String itemValue = item.asText();
-                if (!itemValue.isEmpty()) {
+                if (!itemValue.isEmpty() && !uniqueItems.contains(itemValue)) {
                     if (!firstItem) {
-                        itemsText.append(",  "); // Add a comma and space for subsequent items
+                        itemsText.append(", "); // Add a comma and space for subsequent items
                     }
                     itemsText.append(itemValue);
+                    uniqueItems.add(itemValue); // Add the item to the set to mark it as seen
                     firstItem = false;
                 }
             }
         }
+
+
+        JsonNode serialNumbersNode = jsonNode.get("SERIALITEM");
+
+        Iterator<JsonNode> serialNumbersIterator = serialNumbersNode.elements();
 
         JsonNode coolieNode = jsonNode.get("Coolie");
         JsonNode LuggageNode = jsonNode.get("Luggage");
@@ -215,10 +223,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
         int sum1 = calculateSumFromJsonBAG(jsonData);
         int sum2 = calculateSumFromJsonKG(jsonData);
 
-//        bagsumDetailsList.forEach(map -> {
-//            System.out.println("Printing Map:");
-//            map.forEach((key, value) -> System.out.println("Key: " + key + ", Value: " + value));
-//        });
+
         int TotalSumKgBAg = sum1 + sum2;
         String strTotalSumKgBAg = df.format(TotalSumKgBAg);
 //        System.out.println(TotalSumKgBAg);
@@ -285,7 +290,13 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
                     Color whiteColor = new DeviceRgb(255, 255, 255);
                     Color blackColor = new DeviceRgb(0, 0, 0);
-                    int serialNumber = 1;
+//                    int serialNumber = 1;
+//                    int serialNumber = 1;
+
+//                    JsonNode serialNumberNode = serialNumbersIterator.next();
+//
+//                    // Convert the serial number to an integer, increment it, and convert it back to a string
+//                    String serialNumberString = String.valueOf(serialNumber);
 
                     Table dataTable = new Table(new float[]{100f, 350f, 70f, 80f});
                     dataTable.setBorder(new SolidBorder(blackColor, 1f));
@@ -293,7 +304,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                     whiteSolidBorder.setColor(whiteColor);
                     dataTable.setBorderBottom(whiteSolidBorder);
 
-                    Cell slNoHeaderCell = new Cell().add(new Paragraph("SL NO").setFontSize(11).setBold()).setTextAlignment(TextAlignment.CENTER);
+                    Cell slNoHeaderCell = new Cell().add(new Paragraph("ITEMS").setFontSize(11).setBold()).setTextAlignment(TextAlignment.CENTER);
                     Cell briefHeaderCell = new Cell().add(new Paragraph("Brief").setFontSize(11).setBold()).setTextAlignment(TextAlignment.CENTER);
                     Cell rateHeaderCell = new Cell().add(new Paragraph("Rate").setFontSize(11).setBold()).setTextAlignment(TextAlignment.CENTER);
                     Cell amountHeaderCell = new Cell().add(new Paragraph("Amount").setFontSize(11).setBold()).setTextAlignment(TextAlignment.CENTER);
@@ -325,7 +336,14 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                         String amount = bagsumDetails.get("Amount");
                         String rateString = bagsumDetails.get("RateString");
 
-                        Cell slNoCell = new Cell().add(new Paragraph(String.format("%-2d", serialNumber)));
+                        JsonNode serialNumberNode = serialNumbersIterator.next();
+
+                        // Convert the serialNumberNode to a string
+                        String serialNumber = serialNumberNode.asText();
+
+
+                        Cell slNoCell = new Cell().add(new Paragraph(serialNumber)).setTextAlignment(TextAlignment.CENTER);
+//                        Cell slNoCell = new Cell().add(new Paragraph(String.format("%-2d", serialNumber)));
                         slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
                         Cell briefCell = new Cell().add(new Paragraph(brief));
@@ -349,7 +367,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                         dataTable.addCell(rateCell);
                         dataTable.addCell(amountCell);
 
-                        serialNumber++;
+//                        serialNumber++;
                     }
 
                     List<Map.Entry<String, JsonNode>> sortedEntries = new ArrayList<>();
@@ -385,8 +403,13 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
                             for (int row = 0; row < numRows; row++) {
                                 // Create a cell for SL NO with a white border
-                                Cell slNoCell = new Cell();
-                                slNoCell.add(new Paragraph(String.format("%-2d", serialNumber)));
+                                JsonNode serialNumberNode = serialNumbersIterator.next();
+
+                                // Convert the serialNumberNode to a string
+                                String serialNumber = serialNumberNode.asText();
+//                                Cell slNoCell = new Cell();
+//                                slNoCell.add(new Paragraph(String.format("%-2d", serialNumber)));
+                                Cell slNoCell = new Cell().add(new Paragraph(serialNumber)).setTextAlignment(TextAlignment.CENTER);
                                 slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
                                 // Create a cell for the Brief with a white border
@@ -421,67 +444,11 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                                 dataTable.addCell(rateCell);
                                 dataTable.addCell(amountCell);
 
-                                serialNumber++;
+//                                serialNumber++;
                             }
                         }
                     }
 
-//                    JsonNode kgsumNode = jsonNode.get("KGSUM");
-//                    Iterator<Map.Entry<String, JsonNode>> fieldIterator = kgsumNode.fields();
-//                    while (fieldIterator.hasNext()) {
-//                        Map.Entry<String, JsonNode> entry = fieldIterator.next();
-//                        String rateKey = entry.getKey();
-//                        JsonNode arrayToCalculate = entry.getValue();
-//                        if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-//                            List<String> briefValues = new ArrayList<>();
-//                            for (JsonNode value : arrayToCalculate) {
-//                                String stringValue = value.asText();
-//                                briefValues.add(stringValue);
-//                            }
-//                            int numRows = (int) Math.ceil(briefValues.size() / 4.0);
-//
-//                            for (int row = 0; row < numRows; row++) {
-//                                // Create a cell for SL NO with a white border
-//                                Cell slNoCell = new Cell();
-//                                slNoCell.add(new Paragraph(String.format("%-2d", serialNumber)));
-//                                slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-//
-//                                // Create a cell for the Brief with a white border
-//                                Cell briefCell = new Cell();
-//                                String str = "";
-//                                for (int i = row * 4; i < (row + 1) * 4 && i < briefValues.size(); i++) {
-//                                    str += briefValues.get(i) + " " + " " + " " + " " + " " + " " + " " + " " + " " + " " + " ";
-//                                }
-//                                briefCell.add(new Paragraph(str));
-//                                briefCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-//
-//                                // Create a cell for the Rate with a white border
-//                                Cell rateCell = new Cell();
-//                                String rateValue = "0".equals(rateKey) ? String.join(" ", briefValues) : rateKey;
-//                                rateCell.add(new Paragraph(rateValue).setTextAlignment(TextAlignment.RIGHT));
-//                                rateCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-//
-//                                // Create a cell for the Amount with a white border
-//                                Cell amountCell = new Cell();
-//                                int totalAmountByRate = 0; // Initialize as an integer
-//                                if (!"0".equals(rateKey)) {
-//                                    totalAmountByRate = (int) Math.round(briefValues.subList(row * 4, Math.min((row + 1) * 4, briefValues.size())).stream().mapToDouble(Double::parseDouble).sum());
-//                                }
-////                                String formattedTotalAmount = df.format(totalAmountByRate * Integer.parseInt(rateKey));
-//                                String formattedTotalAmount = df.format((int) Math.ceil(totalAmountByRate * Double.parseDouble(rateKey)));
-//                                amountCell.add(new Paragraph(formattedTotalAmount).setTextAlignment(TextAlignment.RIGHT)).setFontColor(DeviceRgb.BLUE);
-//
-//                                amountCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-//
-//                                dataTable.addCell(slNoCell);
-//                                dataTable.addCell(briefCell);
-//                                dataTable.addCell(rateCell);
-//                                dataTable.addCell(amountCell);
-//
-//                                serialNumber++;
-//                            }
-//                        }
-//                    }
                     // Add empty rows to dataTable
                     for (int i = 0; i < emptyRowsNeeded; i++) {
                         for (int j = 0; j < 4; j++) { // Add 4 empty cells per row
@@ -507,7 +474,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                         }
                     }
 
-                    Paragraph paragraphTotla = new Paragraph(strTotalSumKgBAg + "  (Kg/Bags)").setMarginTop(5).setMarginLeft(140);
+                    Paragraph paragraphTotla = new Paragraph(strTotalSumKgBAg + "  (Kg/Bags/Pkt/Box/Crate)").setMarginTop(5).setMarginLeft(130);
                     document.add(paragraphTotla);
 
                     Table expTable = new Table(new float[]{70, 50});
@@ -550,16 +517,6 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                     document.add(amountParagraph);
                     document.add(expTotalParagraph);
                     document.add(totalParagraph);
-
-
-//                    // Add a paragraph with the Indian currency symbol
-//                    Paragraph paragraph = new Paragraph(currencySymbol)
-//                            .setFont(font)
-//                            .setFontSize(12)
-//                            .setTextAlignment(TextAlignment.CENTER);
-//
-//                    // Add the paragraph to the document
-//                    document.add(paragraph);
 
 
                     document.close();

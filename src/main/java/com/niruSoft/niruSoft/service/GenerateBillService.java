@@ -64,21 +64,21 @@ public class GenerateBillService implements GenerateBillImpl {
                             dataMap.put(headerRow.getCell(cellIndex).getStringCellValue(), cellValue);
                         });
 
-                        if (!itemQty.isEmpty() || !item.isEmpty()) {
-                            if (!itemQty.isEmpty() && !item.isEmpty()) {
-                                // Concatenate "Item qty" and "ITEM" with a space
-                                dataMap.put("ITEM", itemQty + " " + item);
-                            } else if (itemQty.isEmpty()) {
-                                // If "Item qty" is empty, combine values under "ITEM"
-                                itemsWithQty.add(item);
-                            }
-                        }
-
-                        if (itemQty.isEmpty() && seenItems.contains(item)) {
-                            dataMap.put("ITEM", ""); // Set "ITEM" to empty
-                        } else {
-                            seenItems.add(item);
-                        }
+//                        if (!itemQty.isEmpty() || !item.isEmpty()) {
+//                            if (!itemQty.isEmpty() && !item.isEmpty()) {
+//                                // Concatenate "Item qty" and "ITEM" with a space
+//                                dataMap.put("ITEM", itemQty + " " + item);
+//                            } else if (itemQty.isEmpty()) {
+//                                // If "Item qty" is empty, combine values under "ITEM"
+//                                itemsWithQty.add(item);
+//                            }
+//                        }
+//
+//                        if (itemQty.isEmpty() && seenItems.contains(item)) {
+//                            dataMap.put("ITEM", ""); // Set "ITEM" to empty
+//                        } else {
+//                            seenItems.add(item);
+//                        }
 
                         resultMap.computeIfAbsent(farmerName, k -> new ArrayList<>()).add(dataMap);
                     }
@@ -93,9 +93,9 @@ public class GenerateBillService implements GenerateBillImpl {
 
         // Modify the JSON structure to include KGSUM and BAGSUM
         JSONObject modifiedJson = modifyJsonStructure(originalJson);
+        System.out.print(modifiedJson);
         return modifiedJson; // Return the modified JSON
     }
-
     private JSONObject modifyJsonStructure(JSONObject originalJson) {
         JSONObject modifiedJson = new JSONObject();
 
@@ -106,6 +106,9 @@ public class GenerateBillService implements GenerateBillImpl {
             // Initialize KGSUM and BAGSUM structures
             JSONObject kgSum = new JSONObject();
             JSONObject bagSum = new JSONObject();
+
+            // Initialize SERIALITEM array to store ITEM values
+            JSONArray serialItemArray = new JSONArray();
 
             for (int i = 0; i < farmerDataArray.length(); i++) {
                 JSONObject rowData = farmerDataArray.getJSONObject(i);
@@ -149,6 +152,9 @@ public class GenerateBillService implements GenerateBillImpl {
                     }
                 }
 
+                // Add ITEM value to SERIALITEM array
+                serialItemArray.put(rowData.optString("ITEM", ""));
+
                 for (String header : rowData.keySet()) {
                     if (!farmerDataObject.has(header)) {
                         farmerDataObject.put(header, new JSONArray());
@@ -158,16 +164,89 @@ public class GenerateBillService implements GenerateBillImpl {
                 }
             }
 
-            // Add KGSUM and BAGSUM to farmerDataObject
+            // Add KGSUM, BAGSUM, and SERIALITEM to farmerDataObject
             farmerDataObject.put("KGSUM", kgSum);
             farmerDataObject.put("BAGSUM", bagSum);
+            farmerDataObject.put("SERIALITEM", serialItemArray);
 
             modifiedJson.put(farmerName, farmerDataObject);
         }
 
-        System.out.print(modifiedJson);
+        // System.out.print("modified :::"+modifiedJson);
         return modifiedJson;
     }
+
+//    private JSONObject modifyJsonStructure(JSONObject originalJson) {
+//        JSONObject modifiedJson = new JSONObject();
+//
+//        for (String farmerName : originalJson.keySet()) {
+//            JSONArray farmerDataArray = originalJson.getJSONArray(farmerName);
+//            JSONObject farmerDataObject = new JSONObject();
+//
+//            // Initialize KGSUM and BAGSUM structures
+//            JSONObject kgSum = new JSONObject();
+//            JSONObject bagSum = new JSONObject();
+//
+//            for (int i = 0; i < farmerDataArray.length(); i++) {
+//                JSONObject rowData = farmerDataArray.getJSONObject(i);
+//
+//                String unit = rowData.optString("UNIT", "");
+//                String rate = rowData.optString("Rate", "");
+//                String qty = rowData.optString("QTY", "");
+//                String customerName = rowData.optString("CUSTOMER NAME", ""); // New line to get CUSTOMER NAME
+//
+//                // Check if the unit is KG's or BAG's
+//                if ("KG'S".equalsIgnoreCase(unit)) {
+//                    // Check if rate exists in KGSUM
+//
+//                    if (isNumeric(rate) && Double.parseDouble(rate) == 0) {
+//                        // When Rate is 0, include CUSTOMER NAME in KGSUM instead of QTY
+//                        if (!kgSum.has("0")) {
+//                            kgSum.put("0", new JSONArray());
+//                        }
+//                        kgSum.getJSONArray("0").put(customerName);
+//                    } else if (!rate.isEmpty()) {
+//                        if (!kgSum.has(rate)) {
+//                            kgSum.put(rate, new JSONArray());
+//                        }
+//                        kgSum.getJSONArray(rate).put(qty);
+//                    }
+//
+//
+//                } else if ("BAG'S".equalsIgnoreCase(unit)) {
+//                    // Check if rate is numeric and equal to zero
+//                    if (isNumeric(rate) && Double.parseDouble(rate) == 0) {
+//                        // When Rate is 0, include CUSTOMER NAME in BAGSUM instead of QTY
+//                        if (!bagSum.has("0")) {
+//                            bagSum.put("0", new JSONArray());
+//                        }
+//                        bagSum.getJSONArray("0").put(customerName);
+//                    } else if (!rate.isEmpty()) {
+//                        if (!bagSum.has(rate)) {
+//                            bagSum.put(rate, new JSONArray());
+//                        }
+//                        bagSum.getJSONArray(rate).put(qty);
+//                    }
+//                }
+//
+//                for (String header : rowData.keySet()) {
+//                    if (!farmerDataObject.has(header)) {
+//                        farmerDataObject.put(header, new JSONArray());
+//                    }
+//                    JSONArray headerArray = farmerDataObject.getJSONArray(header);
+//                    headerArray.put(rowData.getString(header));
+//                }
+//            }
+//
+//            // Add KGSUM and BAGSUM to farmerDataObject
+//            farmerDataObject.put("KGSUM", kgSum);
+//            farmerDataObject.put("BAGSUM", bagSum);
+//
+//            modifiedJson.put(farmerName, farmerDataObject);
+//        }
+//
+//        return modifiedJson;
+//    }
 
     private boolean isNumeric(String str) {
         try {
@@ -222,7 +301,6 @@ public class GenerateBillService implements GenerateBillImpl {
         }
         return "";
     }
-
 
 
 }
