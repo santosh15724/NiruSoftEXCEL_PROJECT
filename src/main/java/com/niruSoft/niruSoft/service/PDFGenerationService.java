@@ -39,6 +39,8 @@ import java.text.DecimalFormat;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Stream;
+import java.util.stream.StreamSupport;
 
 
 @Service
@@ -53,35 +55,49 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
         ObjectMapper objectMapper = new ObjectMapper();
         JsonNode jsonNode = objectMapper.readTree(jsonData);
         JsonNode kgsumNode = jsonNode.get("KGSUM");
-//        System.out.println(jsonNode);
 
-        ClassPathResource fontResource = new ClassPathResource("fonts/arial-bold.ttf");
-        PdfFont font = PdfFontFactory.createFont(fontResource.getFile().getAbsolutePath(), PdfEncodings.IDENTITY_H);
-
-
-        JsonNode itemsNode = jsonNode.get("ITEM");
-        StringBuilder itemsText = new StringBuilder();
-        Set<String> uniqueItems = new HashSet<>(); // To store unique items
-
-        if (itemsNode != null && itemsNode.isArray()) {
-            boolean firstItem = true; // To keep track of the first item
-            for (JsonNode item : itemsNode) {
-                String itemValue = item.asText();
-                if (!itemValue.isEmpty() && !uniqueItems.contains(itemValue)) {
-                    if (!firstItem) {
-                        itemsText.append(", "); // Add a comma and space for subsequent items
-                    }
-                    itemsText.append(itemValue);
-                    uniqueItems.add(itemValue); // Add the item to the set to mark it as seen
-                    firstItem = false;
-                }
-            }
-        }
-
+//        JsonNode serialNumbersNode = jsonNode.get("SERIALITEM");
+//        Iterator<JsonNode> serialNumbersIterator = serialNumbersNode.elements();
+//
+//        String firstItem = null;
+//        boolean allSame = true;
+//
+//        if (serialNumbersIterator.hasNext()) {
+//            firstItem = serialNumbersIterator.next().asText();
+//
+//            while (serialNumbersIterator.hasNext()) {
+//                String currentItem = serialNumbersIterator.next().asText();
+//
+//                if (!currentItem.equals(firstItem)) {
+//                    allSame = false;
+//                    break;
+//                }
+//            }
+//        }
+//
+//        System.out.println("All elements are the same: " + allSame);
+//        System.out.println(allSame);
 
         JsonNode serialNumbersNode = jsonNode.get("SERIALITEM");
 
         Iterator<JsonNode> serialNumbersIterator = serialNumbersNode.elements();
+
+        ClassPathResource fontResource = new ClassPathResource("fonts/arial-bold.ttf");
+        PdfFont font = PdfFontFactory.createFont(fontResource.getFile().getAbsolutePath(), PdfEncodings.IDENTITY_H);
+
+        StringBuilder itemsText = new StringBuilder();
+        JsonNode particulersumNode = jsonNode.get("PARTICULERSUM");
+        if (particulersumNode != null) {
+            String particulersumValue = particulersumNode.toString(); // Convert the JSON object to a string
+            particulersumValue = particulersumValue.replaceAll("\"", "").replaceAll(",$", "");
+            if (!particulersumValue.isEmpty()) {
+                if (itemsText.length() > 0) {
+                    itemsText.append(", "); // Add a comma and space if itemsText already has content
+                }
+                itemsText.append(particulersumValue);
+            }
+        }
+
 
         JsonNode coolieNode = jsonNode.get("Coolie");
         JsonNode LuggageNode = jsonNode.get("Luggage");
@@ -168,19 +184,15 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                     String rateString; // Default rate string
 
                     if ("0".equals(rateKey)) {
-                        // If rate is 0, set it to "0" and dynamically determine rateString
                         rate = BigDecimal.ZERO;
 
                         JsonNode arrayToCalculate = bagsumNode.get(rateKey);
                         if (arrayToCalculate != null && arrayToCalculate.isArray() && !arrayToCalculate.isEmpty()) {
-                            // Use the first element of the array as rateString
                             rateString = arrayToCalculate.get(0).asText();
                         } else {
-                            // Default value if the array is empty or missing
                             rateString = "NO SALE";
                         }
                     } else {
-                        // For other rateKey values, parse the rateKey to a BigDecimal
                         rate = new BigDecimal(rateKey);
                         rateString = "Rate: " + rate;
                     }
@@ -188,11 +200,9 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                     JsonNode arrayToCalculate = bagsumNode.get(rateKey);
 
                     if (arrayToCalculate != null && arrayToCalculate.isArray()) {
-                        // Initialize variables to store amount and brief sum for the current rate
                         BigDecimal amount = BigDecimal.ZERO;
                         BigDecimal briefSum = BigDecimal.ZERO;
 
-                        // Iterate through the values in the array and calculate the amount and brief sum
                         for (JsonNode value : arrayToCalculate) {
                             String stringValue = value.asText();
                             BigDecimal numericValue;
@@ -211,7 +221,6 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                         rateDetails.put("Amount", amount.toString());
                         rateDetails.put("RateString", rateString);
 
-                        // Add the rate details to the list
                         bagsumDetailsList.add(rateDetails);
                     }
                 }
@@ -236,6 +245,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
 
         try {
+//            boolean finalAllSame = allSame;
             return CompletableFuture.supplyAsync(() -> {
                 try (ByteArrayOutputStream pdfOutputStream = new ByteArrayOutputStream(); PdfWriter pdfWriter = new PdfWriter(pdfOutputStream); PdfDocument pdfDocument = new PdfDocument(pdfWriter)) {
                     pdfDocument.addEventHandler(PdfDocumentEvent.END_PAGE, new PageNumberEventHandler());
@@ -290,13 +300,11 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
                     Color whiteColor = new DeviceRgb(255, 255, 255);
                     Color blackColor = new DeviceRgb(0, 0, 0);
-//                    int serialNumber = 1;
-//                    int serialNumber = 1;
+//                    int AutoserialNumber = 0;
+////                    if (!finalAllSame) {
+//                        AutoserialNumber = 1;
+////                    }
 
-//                    JsonNode serialNumberNode = serialNumbersIterator.next();
-//
-//                    // Convert the serial number to an integer, increment it, and convert it back to a string
-//                    String serialNumberString = String.valueOf(serialNumber);
 
                     Table dataTable = new Table(new float[]{100f, 350f, 70f, 80f});
                     dataTable.setBorder(new SolidBorder(blackColor, 1f));
@@ -320,12 +328,8 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                         public int compare(Map<String, String> detail1, Map<String, String> detail2) {
                             String rate1 = detail1.get("Rate");
                             String rate2 = detail2.get("Rate");
-
-                            // Parse rates as doubles (assuming rates are numeric)
                             double rateValue1 = Double.parseDouble(rate1);
                             double rateValue2 = Double.parseDouble(rate2);
-
-                            // Sort in descending order
                             return Double.compare(rateValue2, rateValue1);
                         }
                     });
@@ -336,6 +340,18 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                         String amount = bagsumDetails.get("Amount");
                         String rateString = bagsumDetails.get("RateString");
 
+
+//                        JsonNode serialNumberNode = serialNumbersIterator.next();
+//                        String serialNumber = serialNumberNode.asText();
+
+//                        Cell slNoCell = new Cell();
+////                        slNoCell = new Cell().add(new Paragraph(serialNumber)).setTextAlignment(TextAlignment.CENTER);
+////                        slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+//
+////                        if (!finalAllSame) {
+//                            slNoCell = new Cell().add(new Paragraph(String.format("%-2d", AutoserialNumber)));
+//                        slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+//                        }
                         JsonNode serialNumberNode = serialNumbersIterator.next();
 
                         // Convert the serialNumberNode to a string
@@ -346,10 +362,9 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 //                        Cell slNoCell = new Cell().add(new Paragraph(String.format("%-2d", serialNumber)));
                         slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
+
                         Cell briefCell = new Cell().add(new Paragraph(brief));
                         briefCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-
-//                        System.out.print(brief);
 
                         Cell rateCell = new Cell().add(new Paragraph("0".equals(rate) ? rateString : rate));
                         rateCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
@@ -366,13 +381,14 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                         dataTable.addCell(briefCell);
                         dataTable.addCell(rateCell);
                         dataTable.addCell(amountCell);
+//                        if (!finalAllSame) {
+//                            AutoserialNumber++;
+//                        }
 
-//                        serialNumber++;
                     }
 
                     List<Map.Entry<String, JsonNode>> sortedEntries = new ArrayList<>();
 
-                    // Collect and sort the entries based on the "rate" key
                     Iterator<Map.Entry<String, JsonNode>> fieldIterator = kgsumNode.fields();
                     while (fieldIterator.hasNext()) {
                         Map.Entry<String, JsonNode> entry = fieldIterator.next();
@@ -385,7 +401,6 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                     Collections.sort(sortedEntries, (entry1, entry2) -> {
                         String rateKey1 = entry1.getKey();
                         String rateKey2 = entry2.getKey();
-                        // Assuming "rateKey" is a String that needs to be sorted as a numerical value
                         return Double.compare(Double.parseDouble(rateKey2), Double.parseDouble(rateKey1));
                     });
 
@@ -402,7 +417,17 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                             int numRows = (int) Math.ceil(briefValues.size() / 4.0);
 
                             for (int row = 0; row < numRows; row++) {
-                                // Create a cell for SL NO with a white border
+//                                JsonNode serialNumberNode = serialNumbersIterator.next();
+//                                String serialNumber = serialNumberNode.asText();
+//                                Cell slNoCell = new Cell();
+////                                slNoCell = new Cell().add(new Paragraph(serialNumber)).setTextAlignment(TextAlignment.CENTER);
+////                                slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+//
+////                                if (!finalAllSame) {
+//
+//                                    slNoCell.add(new Paragraph(String.format("%-2d", AutoserialNumber)));
+//                                    slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
+////                                }
                                 JsonNode serialNumberNode = serialNumbersIterator.next();
 
                                 // Convert the serialNumberNode to a string
@@ -412,7 +437,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                                 Cell slNoCell = new Cell().add(new Paragraph(serialNumber)).setTextAlignment(TextAlignment.CENTER);
                                 slNoCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
 
-                                // Create a cell for the Brief with a white border
+
                                 Cell briefCell = new Cell();
                                 String str = "";
                                 for (int i = row * 4; i < (row + 1) * 4 && i < briefValues.size(); i++) {
@@ -420,20 +445,15 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                                 }
                                 briefCell.add(new Paragraph(str));
                                 briefCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-
-                                // Create a cell for the Rate with a white border
                                 Cell rateCell = new Cell();
                                 String rateValue = "0".equals(rateKey) ? String.join(" ", briefValues) : rateKey;
                                 rateCell.add(new Paragraph(rateValue).setTextAlignment(TextAlignment.RIGHT));
                                 rateCell.setBorderBottom(new SolidBorder(whiteColor, 1f));
-
-                                // Create a cell for the Amount with a white border
                                 Cell amountCell = new Cell();
                                 int totalAmountByRate = 0; // Initialize as an integer
                                 if (!"0".equals(rateKey)) {
                                     totalAmountByRate = (int) Math.round(briefValues.subList(row * 4, Math.min((row + 1) * 4, briefValues.size())).stream().mapToDouble(Double::parseDouble).sum());
                                 }
-//                                String formattedTotalAmount = df.format(totalAmountByRate * Integer.parseInt(rateKey));
                                 String formattedTotalAmount = df.format((int) Math.ceil(totalAmountByRate * Double.parseDouble(rateKey)));
                                 amountCell.add(new Paragraph(formattedTotalAmount).setTextAlignment(TextAlignment.RIGHT)).setFontColor(DeviceRgb.BLUE);
 
@@ -443,8 +463,9 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                                 dataTable.addCell(briefCell);
                                 dataTable.addCell(rateCell);
                                 dataTable.addCell(amountCell);
-
-//                                serialNumber++;
+//                                if (!finalAllSame) {
+//                                    AutoserialNumber++;
+//                                }
                             }
                         }
                     }
