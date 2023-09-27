@@ -4,7 +4,7 @@ COPY . /app/
 RUN mvn clean package
 
 
-COPY src/main/resources/Image/SKTRADER.jpg app/
+#COPY src/main/resources/Image/SKTRADER.jpg app/
 
 
 FROM openjdk:17-jdk-alpine
