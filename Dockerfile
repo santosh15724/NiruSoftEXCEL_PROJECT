@@ -5,7 +5,7 @@ RUN mvn clean package
 
 
 COPY resources/Image/SKTRADER.jpg app/
-COPY resources/fonts/ariel.ttf app/
+COPY resources/Image/ariel.ttf app/
 
 FROM openjdk:17-jdk-alpine
 WORKDIR /app

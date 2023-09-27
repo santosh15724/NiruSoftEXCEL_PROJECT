@@ -80,7 +80,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
         Iterator<JsonNode> serialNumbersIterator = serialNumbersNode.elements();
 
-        ClassPathResource fontResource = new ClassPathResource("fonts/ariel.ttf");
+        ClassPathResource fontResource = new ClassPathResource("Image/ariel.ttf");
         PdfFont font = PdfFontFactory.createFont(fontResource.getFile().getAbsolutePath(), PdfEncodings.IDENTITY_H);
 
         StringBuilder itemsText = new StringBuilder();
