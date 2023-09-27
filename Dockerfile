@@ -6,6 +6,6 @@ RUN mvn clean package
 
 FROM openjdk:17-jdk-alpine
 WORKDIR /app
-COPY --from=bild /app/target/*.jar app/app.jar
+COPY --from=build /app/target/*.jar app/app.jar
 EXPOSE 8089
 ENTRYPOINT ["java","-jar","/app.jar"]
