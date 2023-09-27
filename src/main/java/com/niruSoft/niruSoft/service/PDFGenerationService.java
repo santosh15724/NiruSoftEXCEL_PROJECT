@@ -39,8 +39,6 @@ import java.text.DecimalFormat;
 import java.util.List;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.stream.Stream;
-import java.util.stream.StreamSupport;
 
 
 @Service
@@ -82,7 +80,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
         Iterator<JsonNode> serialNumbersIterator = serialNumbersNode.elements();
 
-        ClassPathResource fontResource = new ClassPathResource("fonts/arial-bold.ttf");
+        ClassPathResource fontResource = new ClassPathResource("fonts/ariel.ttf");
         PdfFont font = PdfFontFactory.createFont(fontResource.getFile().getAbsolutePath(), PdfEncodings.IDENTITY_H);
 
         StringBuilder itemsText = new StringBuilder();
