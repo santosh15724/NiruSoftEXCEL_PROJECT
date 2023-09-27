@@ -80,8 +80,8 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
 
         Iterator<JsonNode> serialNumbersIterator = serialNumbersNode.elements();
 
-        ClassPathResource fontResource = new ClassPathResource("Image/ariel.ttf");
-        PdfFont font = PdfFontFactory.createFont(fontResource.getFile().getAbsolutePath(), PdfEncodings.IDENTITY_H);
+//        ClassPathResource fontResource = new ClassPathResource("Image/ariel.ttf");
+//        PdfFont font = PdfFontFactory.createFont(fontResource.getFile().getAbsolutePath(), PdfEncodings.IDENTITY_H);
 
         StringBuilder itemsText = new StringBuilder();
         JsonNode particulersumNode = jsonNode.get("PARTICULERSUM");
@@ -530,7 +530,7 @@ public class PDFGenerationService implements PDFGenerationServiceImpl {
                     Paragraph expTotalParagraph = new Paragraph().setFontSize(12).setMarginTop(-8).setMarginRight(5).add(new Text(expToalAsString)).setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).add("\n").setTextAlignment(TextAlignment.RIGHT);
                     Color brownColor = new DeviceRgb(139, 69, 19);
 //                    String currencySymbol = "\u20B9";
-                    Paragraph totalParagraph = new Paragraph().setFontSize(16).add("Total:     ").setMarginRight(5).add(new Text(currencySymbol)).add(new Text(totalAsString)).setFont(font).setFontColor(brownColor).add("\n").setTextAlignment(TextAlignment.RIGHT);
+                    Paragraph totalParagraph = new Paragraph().setFontSize(16).add("Total:     ").setMarginRight(5).add(new Text(totalAsString)).setFontColor(brownColor).add("\n").setFont(PdfFontFactory.createFont(StandardFonts.TIMES_BOLD)).setTextAlignment(TextAlignment.RIGHT);
 
                     amountParagraph = amountParagraph.setUnderline();
                     document.add(amountParagraph);
