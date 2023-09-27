@@ -3,10 +3,8 @@ WORKDIR /app
 COPY . /app/
 RUN mvn clean package
 
-# Create a directory for images and copy the image
-RUN mkdir -p app/resources/Image
-COPY resources/Image/SKTRADER.jpg app/resources/Image/
 
+COPY src/main/resources/Image/SKTRADER.jpg app/
 
 
 FROM openjdk:17-jdk-alpine
